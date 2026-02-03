@@ -7,6 +7,30 @@ import PageNotFound from './lib/PageNotFound';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import UserNotRegisteredError from '@/components/UserNotRegisteredError';
 
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
+
+import Home from './pages/Home';
+import AcessoCockpit from './pages/AcessoCockpit';
+import Cockpit from './pages/Cockpit';
+import Pedido from './pages/Pedido';
+import Validacao from './pages/Validacao';
+
+function App() {
+  return (
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<Home />} />
+        <Route path="/acesso-cockpit" element={<AcessoCockpit />} />
+        <Route path="/cockpit" element={<Cockpit />} />
+        <Route path="/pedido" element={<Pedido />} />
+        <Route path="/validacao" element={<Validacao />} />
+      </Routes>
+    </BrowserRouter>
+  );
+}
+
+export default App;
+
 const { Pages, Layout, mainPage } = pagesConfig;
 const mainPageKey = mainPage ?? Object.keys(Pages)[0];
 const MainPage = mainPageKey ? Pages[mainPageKey] : <></>;
