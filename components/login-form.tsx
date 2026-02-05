@@ -17,7 +17,7 @@ const MOCK_CREDENTIALS = {
   email: "lpdompieri@gmail.com",
   password: "q1w2e3r$",
   user: {
-    name: "Lucas Dompieri",
+    name: "Luis Dompieri",
     email: "lpdompieri@gmail.com",
   },
 }
@@ -131,14 +131,14 @@ export function LoginForm() {
             >
               <span className="text-primary-foreground font-bold text-lg">B</span>
             </div>
-            <span className="text-2xl font-bold text-primary">BNDES</span>
+            <span className="text-2xl font-bold text-primary">FinviaPay</span>
           </div>
         </div>
         <CardTitle className="text-2xl font-semibold text-foreground">
           Bem-vindo de volta
         </CardTitle>
         <CardDescription className="text-muted-foreground">
-          Acesse sua conta do Cartão BNDES
+          Acesse o sistema do FinviaPay com suas credencias:
         </CardDescription>
       </CardHeader>
       <CardContent>
