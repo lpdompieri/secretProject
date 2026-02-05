@@ -32,7 +32,7 @@ export function DashboardHeader({ onMenuClick }: DashboardHeaderProps) {
               <span className="text-primary font-bold text-sm">B</span>
             </div>
             <span className="text-lg font-bold text-primary-foreground hidden sm:block">
-              BNDES
+              FinviaPay
             </span>
           </div>
         </div>
