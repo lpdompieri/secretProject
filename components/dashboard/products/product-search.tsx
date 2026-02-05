@@ -16,7 +16,7 @@ import {
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
-import { checkBndesEligibility } from "@/services/product-services"
+import { checkBndesEligibility } from "@/services/product-service"
 
 interface Product {
   codigo: string
