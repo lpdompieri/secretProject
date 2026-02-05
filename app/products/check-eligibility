@@ -1,0 +1,54 @@
+import { NextResponse } from "next/server"
+
+export async function GET(request: Request) {
+  try {
+    const { searchParams } = new URL(request.url)
+    const sku = searchParams.get("sku")
+
+    if (!sku) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "SKU nao informado",
+        },
+        { status: 400 }
+      )
+    }
+
+    /**
+     * ============================
+     * MOCK DE REGRA BNDES
+     * ============================
+     * Depois isso vira:
+     * - consulta NCM
+     * - origem fiscal
+     * - regra BNDES real
+     */
+
+    // Simula tempo de processamento
+    await new Promise((resolve) => setTimeout(resolve, 300))
+
+    const eligibleSkus = ["112233", "89100494"]
+
+    const eligible = eligibleSkus.includes(sku)
+
+    return NextResponse.json({
+      success: true,
+      timestamp: new Date().toISOString(),
+      processingTimeMs: 12,
+      data: {
+        sku,
+        eligible,
+        ruleVersion: "2026.02",
+      },
+    })
+  } catch (error) {
+    return NextResponse.json(
+      {
+        success: false,
+        error: "Erro interno ao validar elegibilidade",
+      },
+      { status: 500 }
+    )
+  }
+}
