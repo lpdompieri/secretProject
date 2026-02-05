@@ -24,37 +24,19 @@ interface BndesApiResponse {
 /**
  * Consulta REAL de elegibilidade BNDES
  */
-export async function checkBndesEligibility(
-  sku: string
-): Promise<ProductEligibilityResult> {
+export async function checkBndesEligibility(sku: string) {
   try {
-    const response = await fetch(`${BNDES_API_URL}?sku=${sku}`, {
+    const response = await fetch(`/api/bndes/eligibility?sku=${sku}`, {
       method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      cache: "no-store",
     })
 
     if (!response.ok) {
-      throw new Error(`Erro HTTP ${response.status}`)
+      throw new Error("Erro ao consultar elegibilidade BNDES")
     }
 
-    const json: BndesApiResponse = await response.json()
-
-    return {
-      success: true,
-      sku: json.data.sku,
-      eligible: json.data.eligible,
-      ruleVersion: json.data.ruleVersion,
-    }
+    return await response.json()
   } catch (error) {
-    return {
-      success: false,
-      error:
-        error instanceof Error
-          ? error.message
-          : "Erro ao consultar elegibilidade BNDES",
-    }
+    const message = error instanceof Error ? error.message : "Erro desconhecido"
+    return { success: false, error: message }
   }
 }
