@@ -33,10 +33,10 @@ import { cn } from "@/lib/utils"
 ================================ */
 
 const PRESIGNED_API_URL =
-  "https://q7cxwlgged6pphwts77jil53ai0aoywg.lambda-url.sa-east-1.on.aws/"
+  process.env.NEXT_PUBLIC_PRESIGNED_API_URL!
 
 const BASIC_AUTH =
-  "Basic bHBkb21waWVyaUBnbWFpbC5jb206Y292aXp6aQ=="
+  process.env.NEXT_PUBLIC_BASIC_AUTH!
 
 /* ===============================
    TIPOS
@@ -137,14 +137,10 @@ export function ProductRegister({ onBack }: ProductRegisterProps) {
 
     try {
       if (mode === "csv" && selectedFile) {
-        // 1. Gera URL
         const { uploadUrl } = await getPresignedUrl()
-
-        // 2. Upload CSV
         await uploadCsvToS3(uploadUrl, selectedFile)
       }
 
-      // Simulação visual das etapas
       for (let i = 0; i < steps.length; i++) {
         setProcessingSteps((prev) =>
           prev.map((s, idx) => ({
@@ -153,7 +149,9 @@ export function ProductRegister({ onBack }: ProductRegisterProps) {
             completed: idx < i,
           }))
         )
+
         await new Promise((r) => setTimeout(r, steps[i].duration))
+
         setProcessingSteps((prev) =>
           prev.map((s, idx) => ({
             ...s,
@@ -196,7 +194,7 @@ export function ProductRegister({ onBack }: ProductRegisterProps) {
 
   function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
-    if (!file?.name.endsWith(".csv")) {
+    if (!file || !file.name.endsWith(".csv")) {
       setFormError("Arquivo inválido")
       return
     }
@@ -215,7 +213,142 @@ export function ProductRegister({ onBack }: ProductRegisterProps) {
   }
 
   /* ===============================
-     TELAS (mantidas)
+     TELAS
   ================================ */
 
-  // ⬇️ (a partir daqui, seu JSX permanece igual)
+  if (step === "processing") {
+    return (
+      <Card>
+        <CardContent className="py-12">
+          <div className="flex flex-col items-center gap-6">
+            <Loader2 className="h-12 w-12 animate-spin text-primary" />
+            <div className="w-full max-w-md space-y-3">
+              {processingSteps.map((s, i) => (
+                <div
+                  key={i}
+                  className={cn(
+                    "flex items-center gap-3 p-3 rounded-lg",
+                    s.active && "bg-primary/10",
+                    s.completed && "bg-green-50"
+                  )}
+                >
+                  {s.completed ? (
+                    <CheckCircle2 className="h-5 w-5 text-green-600" />
+                  ) : s.active ? (
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                  ) : (
+                    <div className="h-5 w-5 rounded-full border" />
+                  )}
+                  <span>{s.label}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  if (step === "success") {
+    return (
+      <Card>
+        <CardContent className="py-12 text-center">
+          <CheckCircle2 className="h-14 w-14 text-green-600 mx-auto mb-4" />
+          <h2 className="text-xl font-semibold mb-2">
+            Cadastro concluído
+          </h2>
+          <Button onClick={handleBackToSearch}>
+            Voltar
+          </Button>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center gap-3">
+        <Button variant="ghost" size="icon" onClick={onBack}>
+          <ArrowLeft className="h-5 w-5" />
+        </Button>
+        <h2 className="text-xl font-semibold">
+          Cadastrar Produto
+        </h2>
+      </div>
+
+      <div className="flex gap-2 border-b">
+        <button
+          onClick={() => setMode("manual")}
+          className={cn(
+            "px-4 py-2 border-b-2",
+            mode === "manual"
+              ? "border-primary"
+              : "border-transparent"
+          )}
+        >
+          Manual
+        </button>
+        <button
+          onClick={() => setMode("csv")}
+          className={cn(
+            "px-4 py-2 border-b-2",
+            mode === "csv"
+              ? "border-primary"
+              : "border-transparent"
+          )}
+        >
+          CSV
+        </button>
+      </div>
+
+      {mode === "manual" ? (
+        <Card>
+          <CardContent className="space-y-4">
+            <form onSubmit={handleManualSubmit} className="space-y-4">
+              <Input placeholder="Código" value={codigo} onChange={(e) => setCodigo(e.target.value)} />
+              <Input placeholder="Descrição" value={descricao} onChange={(e) => setDescricao(e.target.value)} />
+              <Input placeholder="NCM" value={ncm} onChange={(e) => setNcm(e.target.value)} />
+
+              <Select value={origemFiscal} onValueChange={setOrigemFiscal}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Origem Fiscal" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="nacional">Nacional</SelectItem>
+                  <SelectItem value="importado">Importado</SelectItem>
+                </SelectContent>
+              </Select>
+
+              {formError && <p className="text-red-600">{formError}</p>}
+              <Button type="submit">Cadastrar</Button>
+            </form>
+          </CardContent>
+        </Card>
+      ) : (
+        <Card>
+          <CardContent className="space-y-4">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".csv"
+              onChange={handleFileSelect}
+            />
+
+            {selectedFile && (
+              <div className="flex items-center gap-2">
+                <FileText />
+                {selectedFile.name}
+                <Button size="icon" variant="ghost" onClick={handleRemoveFile}>
+                  <X />
+                </Button>
+              </div>
+            )}
+
+            {formError && <p className="text-red-600">{formError}</p>}
+            <Button onClick={handleCsvSubmit}>Enviar CSV</Button>
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  )
+}
