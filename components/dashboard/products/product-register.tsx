@@ -10,7 +10,7 @@ import { cn } from "@/lib/utils"
    TIPOS
 ================================ */
 
-type RegisterStep = "form" | "processing" | "success"
+type RegisterStep = "form" | "processing"
 
 type DebugLog = {
   step: string
