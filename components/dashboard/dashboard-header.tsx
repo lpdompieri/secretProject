@@ -1,15 +1,21 @@
 "use client"
 
 import { Button } from "@/components/ui/button"
-import { Menu, LogOut } from "lucide-react"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Menu, LogOut, Building2 } from "lucide-react"
 import { useAuth } from "@/contexts/auth-context"
+import { useEmpresa } from "@/contexts/empresa-context"
 
 interface DashboardHeaderProps {
   onMenuClick: () => void
 }
 
 export function DashboardHeader({ onMenuClick }: DashboardHeaderProps) {
-  const { user, logout } = useAuth()
+  const { user, isMaster, logout } = useAuth()
+  const { empresaAtiva, setEmpresaAtiva, empresas, empresasComTodas } = useEmpresa()
+
+  // Busca o nome da empresa ativa para exibir em usuarios nao-master
+  const nomeEmpresaAtiva = empresas.find((e) => e.codigo === empresaAtiva)?.nome || empresaAtiva
 
   return (
     <header className="fixed top-0 left-0 right-0 z-40 h-16 bg-primary shadow-md">
@@ -38,8 +44,40 @@ export function DashboardHeader({ onMenuClick }: DashboardHeaderProps) {
         </div>
 
         <div className="flex items-center gap-4">
-          <span className="text-primary-foreground text-sm hidden sm:block">
-            Olá, <span className="font-medium">{user?.name || "Usuário"}</span>
+          {/* Master: combo com opcao "Todas" + empresas */}
+          {user && isMaster && (
+            <div className="hidden sm:flex items-center gap-2">
+              <Building2 className="h-4 w-4 text-primary-foreground" aria-hidden="true" />
+              <Select value={empresaAtiva} onValueChange={setEmpresaAtiva}>
+                <SelectTrigger 
+                  className="w-56 h-8 bg-primary-foreground/10 border-primary-foreground/20 text-primary-foreground text-sm focus:ring-primary-foreground/30"
+                  aria-label="Selecionar empresa"
+                >
+                  <SelectValue placeholder="Selecionar empresa" />
+                </SelectTrigger>
+                <SelectContent>
+                  {empresasComTodas.map((emp) => (
+                    <SelectItem key={emp.codigo} value={emp.codigo}>
+                      {emp.codigo === "TODAS" ? emp.nome : `${emp.codigo} - ${emp.nome}`}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
+          {/* Nao-Master: mostra empresa fixa */}
+          {user && !isMaster && user.empresa && (
+            <div className="hidden sm:flex items-center gap-2 text-primary-foreground text-sm">
+              <Building2 className="h-4 w-4" aria-hidden="true" />
+              <span>
+                Empresa: <span className="font-semibold">{nomeEmpresaAtiva}</span>
+              </span>
+            </div>
+          )}
+
+          <span className="text-primary-foreground text-sm hidden md:block">
+            Ola, <span className="font-medium">{user?.name || "Usuario"}</span>
           </span>
           <Button
             variant="ghost"

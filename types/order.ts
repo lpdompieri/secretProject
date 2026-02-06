@@ -125,6 +125,8 @@ export interface Order {
   loja: {
     nome: string
     cnpj: string
+    codigo?: string
+    empresaCodigo?: string
   }
   cliente: CustomerData
   itens: OrderItem[]

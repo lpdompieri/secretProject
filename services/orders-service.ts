@@ -173,14 +173,15 @@ function gerarPedidosMock(): Order[] {
   return pedidos
 }
 
+// Cache dos pedidos mockados (usa dados centralizados de mocks/pedidos.ts)
+import { getMockPedidos as getCentralizedPedidos } from "@/mocks/pedidos"
+
 // Cache dos pedidos mockados
 let pedidosMockados: Order[] | null = null
 
 function getPedidosMock(): Order[] {
-  if (!pedidosMockados) {
-    pedidosMockados = gerarPedidosMock()
-  }
-  return pedidosMockados
+  // Prioriza os pedidos centralizados que possuem empresa/loja linkados
+  return getCentralizedPedidos()
 }
 
 // =============================================================================

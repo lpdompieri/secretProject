@@ -6,43 +6,41 @@ import { DashboardHeader } from "@/components/dashboard/dashboard-header"
 import { DashboardSidebar, type MenuSection } from "@/components/dashboard/dashboard-sidebar"
 import { CockpitContent } from "@/components/dashboard/cockpit/cockpit-content"
 import { ProductsContent } from "@/components/dashboard/products/products-content"
+import { EmpresaContent } from "@/components/dashboard/empresa/empresa-content"
+import { GerenciarUsuariosContent } from "@/components/dashboard/usuarios/gerenciar-usuarios-content"
+import { PerfisContent } from "@/components/dashboard/usuarios/perfis-content"
 import { PaymentContent } from "@/components/payment/payment-content"
 import { OrdersContent } from "@/components/orders/orders-content"
 import { useAuth } from "@/contexts/auth-context"
 import { cn } from "@/lib/utils"
 
-// Componente placeholder para secoes nao implementadas
-function PlaceholderContent({ title }: { title: string }) {
-  return (
-    <div className="space-y-6">
-      <header>
-        <h1 className="text-3xl font-bold text-foreground">{title}</h1>
-        <p className="text-muted-foreground mt-1">
-          Esta secao esta em desenvolvimento
-        </p>
-      </header>
-      <div className="flex items-center justify-center h-64 bg-muted/50 rounded-lg border-2 border-dashed border-border">
-        <p className="text-muted-foreground">Conteudo em breve</p>
-      </div>
-    </div>
-  )
-}
-
 export default function DashboardPage() {
   const router = useRouter()
-  const { isAuthenticated } = useAuth()
+  const { isAuthenticated, isAuthLoading } = useAuth()
   
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const [activeSection, setActiveSection] = useState<MenuSection>("cockpit")
 
-  // Verificar autenticacao
+  // Verificar autenticacao somente apos o carregamento inicial
   useEffect(() => {
-    if (!isAuthenticated) {
+    if (!isAuthLoading && !isAuthenticated) {
       router.push("/")
     }
-  }, [isAuthenticated, router])
+  }, [isAuthenticated, isAuthLoading, router])
 
-  // Nao renderizar ate verificar autenticacao
+  // Mostrar loading enquanto verifica autenticacao
+  if (isAuthLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="flex flex-col items-center gap-3">
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+          <span className="text-sm text-muted-foreground">Carregando...</span>
+        </div>
+      </div>
+    )
+  }
+
+  // Nao renderizar se nao autenticado (redirect vai acontecer via useEffect)
   if (!isAuthenticated) {
     return null
   }
@@ -55,9 +53,11 @@ export default function DashboardPage() {
       case "produtos":
         return <ProductsContent />
       case "empresa":
-        return <PlaceholderContent title="Empresa" />
-      case "usuario":
-        return <PlaceholderContent title="Usuario" />
+        return <EmpresaContent />
+      case "gerenciar-usuarios":
+        return <GerenciarUsuariosContent />
+      case "perfis-usuarios":
+        return <PerfisContent />
       case "pagamento":
         return <PaymentContent />
       case "pedidos":

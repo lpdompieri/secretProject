@@ -1,60 +1,90 @@
 "use client"
 
-import { createContext, useContext, useState, useCallback, type ReactNode } from "react"
+import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from "react"
 import { useRouter } from "next/navigation"
 
-// Tipos para o usuário e contexto de autenticação
+// Tipos para o usuario e contexto de autenticacao
 export interface User {
+  cpf: string
   name: string
   email: string
+  empresa: string
+  perfil: "Vendedor" | "Gerente" | "Financeiro" | "Master"
 }
 
 interface AuthContextType {
   user: User | null
   isAuthenticated: boolean
+  isAuthLoading: boolean
+  isMaster: boolean
   login: (user: User, token?: string) => void
   logout: () => void
-  // Preparado para JWT no futuro
   token: string | null
 }
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined)
+const AUTH_STORAGE_KEY = "finviapay_auth"
 
-// Constante para a chave do token (preparado para JWT)
-const TOKEN_KEY = "auth_token"
-const USER_KEY = "auth_user"
+function getStoredAuth(): { user: User; token: string | null } | null {
+  if (typeof window === "undefined") return null
+  try {
+    const stored = sessionStorage.getItem(AUTH_STORAGE_KEY)
+    if (stored) {
+      return JSON.parse(stored)
+    }
+  } catch {
+    // ignore
+  }
+  return null
+}
+
+const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const router = useRouter()
   const [user, setUser] = useState<User | null>(null)
   const [token, setToken] = useState<string | null>(null)
+  const [isAuthLoading, setIsAuthLoading] = useState(true)
+
+  // Restaurar sessao do sessionStorage ao montar
+  useEffect(() => {
+    const stored = getStoredAuth()
+    if (stored) {
+      setUser(stored.user)
+      setToken(stored.token)
+    }
+    setIsAuthLoading(false)
+  }, [])
 
   const login = useCallback((userData: User, authToken?: string) => {
     setUser(userData)
-    if (authToken) {
-      setToken(authToken)
-      // TODO: Armazenar token de forma segura (httpOnly cookie via API é recomendado)
-      // sessionStorage.setItem(TOKEN_KEY, authToken)
+    const t = authToken ?? null
+    setToken(t)
+    try {
+      sessionStorage.setItem(
+        AUTH_STORAGE_KEY,
+        JSON.stringify({ user: userData, token: t })
+      )
+    } catch {
+      // ignore
     }
-    // sessionStorage.setItem(USER_KEY, JSON.stringify(userData))
   }, [])
 
   const logout = useCallback(() => {
     setUser(null)
     setToken(null)
-    // Limpar storage quando implementado
-    // sessionStorage.removeItem(TOKEN_KEY)
-    // sessionStorage.removeItem(USER_KEY)
-    
-    // TODO: Chamar API de logout para invalidar token no servidor
-    // await fetch('/api/auth/logout', { method: 'POST' })
-    
+    try {
+      sessionStorage.removeItem(AUTH_STORAGE_KEY)
+    } catch {
+      // ignore
+    }
     router.push("/")
   }, [router])
 
   const value: AuthContextType = {
     user,
     isAuthenticated: !!user,
+    isAuthLoading,
+    isMaster: user?.perfil === "Master",
     login,
     logout,
     token,

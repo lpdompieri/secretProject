@@ -33,6 +33,7 @@ import {
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { listarPedidos } from "@/services/orders-service"
+import { useEmpresa } from "@/contexts/empresa-context"
 import type { Order, OrderStatus } from "@/types/order"
 import { ORDER_STATUS_LABELS, ORDER_STATUS_COLORS } from "@/types/order"
 
@@ -79,6 +80,7 @@ export function OrdersList({
   onSendInvoice,
   onResendPayment,
 }: OrdersListProps) {
+  const { empresaAtiva } = useEmpresa()
   const [orders, setOrders] = useState<Order[]>([])
   const [filteredOrders, setFilteredOrders] = useState<Order[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -103,11 +105,16 @@ export function OrdersList({
 
   useEffect(() => {
     loadOrders()
-  }, [loadOrders])
+  }, [loadOrders, empresaAtiva])
 
   // Filtrar pedidos
   useEffect(() => {
     let filtered = orders
+
+    // Filtro por empresa ativa (header)
+    if (empresaAtiva && empresaAtiva !== "TODAS") {
+      filtered = filtered.filter(order => order.loja.empresaCodigo === empresaAtiva)
+    }
 
     // Filtro por status
     if (statusFilter !== "TODOS") {
@@ -125,7 +132,7 @@ export function OrdersList({
     }
 
     setFilteredOrders(filtered)
-  }, [orders, statusFilter, searchTerm])
+  }, [orders, statusFilter, searchTerm, empresaAtiva])
 
   // Renderizar acoes baseadas no status
   function renderActions(order: Order) {
@@ -197,7 +204,9 @@ export function OrdersList({
         <div>
           <h1 className="text-2xl font-bold text-foreground">Pedidos</h1>
           <p className="text-muted-foreground mt-1">
-            Gerencie seus pedidos e acompanhe o status
+            {empresaAtiva === "TODAS"
+              ? "Exibindo pedidos de todas as empresas"
+              : `Filtrando pedidos da empresa ${empresaAtiva}`}
           </p>
         </div>
         <Button variant="outline" size="sm" onClick={loadOrders}>
