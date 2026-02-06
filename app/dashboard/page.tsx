@@ -6,27 +6,13 @@ import { DashboardHeader } from "@/components/dashboard/dashboard-header"
 import { DashboardSidebar, type MenuSection } from "@/components/dashboard/dashboard-sidebar"
 import { CockpitContent } from "@/components/dashboard/cockpit/cockpit-content"
 import { ProductsContent } from "@/components/dashboard/products/products-content"
+import { EmpresaContent } from "@/components/dashboard/empresa/empresa-content"
+import { GerenciarUsuariosContent } from "@/components/dashboard/usuarios/gerenciar-usuarios-content"
+import { PerfisContent } from "@/components/dashboard/usuarios/perfis-content"
 import { PaymentContent } from "@/components/payment/payment-content"
 import { OrdersContent } from "@/components/orders/orders-content"
 import { useAuth } from "@/contexts/auth-context"
 import { cn } from "@/lib/utils"
-
-// Componente placeholder para secoes nao implementadas
-function PlaceholderContent({ title }: { title: string }) {
-  return (
-    <div className="space-y-6">
-      <header>
-        <h1 className="text-3xl font-bold text-foreground">{title}</h1>
-        <p className="text-muted-foreground mt-1">
-          Esta secao esta em desenvolvimento
-        </p>
-      </header>
-      <div className="flex items-center justify-center h-64 bg-muted/50 rounded-lg border-2 border-dashed border-border">
-        <p className="text-muted-foreground">Conteudo em breve</p>
-      </div>
-    </div>
-  )
-}
 
 export default function DashboardPage() {
   const router = useRouter()
@@ -55,9 +41,11 @@ export default function DashboardPage() {
       case "produtos":
         return <ProductsContent />
       case "empresa":
-        return <PlaceholderContent title="Empresa" />
-      case "usuario":
-        return <PlaceholderContent title="Usuario" />
+        return <EmpresaContent />
+      case "gerenciar-usuarios":
+        return <GerenciarUsuariosContent />
+      case "perfis-usuarios":
+        return <PerfisContent />
       case "pagamento":
         return <PaymentContent />
       case "pedidos":

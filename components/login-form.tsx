@@ -8,26 +8,13 @@ import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { AlertCircle, CheckCircle2, Eye, EyeOff, Loader2 } from "lucide-react"
 import { useAuth } from "@/contexts/auth-context"
-
-// Constante para URL da API - ajuste conforme seu backend
-const API_URL = "/api/login"
-
-// Credenciais mockadas para teste enquanto o backend não está pronto
-const MOCK_CREDENTIALS = {
-  email: "lpdompieri@gmail.com",
-  password: "q1w2e3r$",
-  user: {
-    name: "Luis Dompieri",
-    email: "lpdompieri@gmail.com",
-  },
-}
+import { findUserByCredentials } from "@/mocks/users"
 
 interface LoginCredentials {
   email: string
   password: string
 }
 
-// Validação básica de email
 function isValidEmail(email: string): boolean {
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
   return emailRegex.test(email)
@@ -45,49 +32,34 @@ export function LoginForm() {
   const [success, setSuccess] = useState<string | null>(null)
 
   async function handleLogin(credentials: LoginCredentials) {
-    // Validação de email
     if (!isValidEmail(credentials.email)) {
-      throw new Error("Por favor, insira um e-mail válido")
+      throw new Error("Por favor, insira um e-mail valido")
     }
 
-    if (!credentials.password || credentials.password.length < 4) {
-      throw new Error("A senha deve ter pelo menos 4 caracteres")
+    if (!credentials.password || credentials.password.length < 3) {
+      throw new Error("A senha deve ter pelo menos 3 caracteres")
     }
 
-    // TODO: Descomentar quando o backend estiver pronto
-    /*
-    const response = await fetch(API_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(credentials),
-    })
-
-    if (!response.ok) {
-      const errorData = await response.json()
-      throw new Error(errorData.message || "Erro ao fazer login")
-    }
-
-    const data = await response.json()
-    return data
-    */
-
-    // Simulação de delay da API
+    // Simulacao de delay da API
     await new Promise((resolve) => setTimeout(resolve, 1000))
 
-    // Mock: Verificar credenciais de teste
-    if (
-      credentials.email === MOCK_CREDENTIALS.email &&
-      credentials.password === MOCK_CREDENTIALS.password
-    ) {
+    // Buscar usuario nos dados mockados
+    const mockUser = findUserByCredentials(credentials.email, credentials.password)
+
+    if (mockUser) {
       return {
-        user: MOCK_CREDENTIALS.user,
-        token: "mock_jwt_token_123", // Simulação de token JWT
+        user: {
+          cpf: mockUser.cpf,
+          name: mockUser.name,
+          email: mockUser.email,
+          empresa: mockUser.empresa,
+          perfil: mockUser.perfil,
+        },
+        token: "mock_jwt_token_123",
       }
     }
 
-    throw new Error("E-mail ou senha inválidos")
+    throw new Error("E-mail ou senha invalidos")
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -104,11 +76,9 @@ export function LoginForm() {
     try {
       const data = await handleLogin(credentials)
       
-      // Login bem-sucedido
       login(data.user, data.token)
       setSuccess("Login realizado com sucesso! Redirecionando...")
       
-      // Redirecionar para o dashboard após breve delay
       setTimeout(() => {
         router.push("/dashboard")
       }, 1500)
@@ -138,7 +108,7 @@ export function LoginForm() {
           Bem-vindo de volta
         </CardTitle>
         <CardDescription className="text-muted-foreground">
-          Acesse o sistema do FinviaPay com suas credencias:
+          Acesse o sistema do FinviaPay com suas credenciais:
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -171,7 +141,7 @@ export function LoginForm() {
                 id="password"
                 name="password"
                 type={showPassword ? "text" : "password"}
-                placeholder="••••••••"
+                placeholder="********"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required

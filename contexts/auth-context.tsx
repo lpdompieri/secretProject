@@ -3,26 +3,25 @@
 import { createContext, useContext, useState, useCallback, type ReactNode } from "react"
 import { useRouter } from "next/navigation"
 
-// Tipos para o usuário e contexto de autenticação
+// Tipos para o usuario e contexto de autenticacao
 export interface User {
+  cpf: string
   name: string
   email: string
+  empresa: string
+  perfil: "Vendedor" | "Gerente" | "Financeiro" | "Master"
 }
 
 interface AuthContextType {
   user: User | null
   isAuthenticated: boolean
+  isMaster: boolean
   login: (user: User, token?: string) => void
   logout: () => void
-  // Preparado para JWT no futuro
   token: string | null
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
-
-// Constante para a chave do token (preparado para JWT)
-const TOKEN_KEY = "auth_token"
-const USER_KEY = "auth_user"
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const router = useRouter()
@@ -33,28 +32,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(userData)
     if (authToken) {
       setToken(authToken)
-      // TODO: Armazenar token de forma segura (httpOnly cookie via API é recomendado)
-      // sessionStorage.setItem(TOKEN_KEY, authToken)
     }
-    // sessionStorage.setItem(USER_KEY, JSON.stringify(userData))
   }, [])
 
   const logout = useCallback(() => {
     setUser(null)
     setToken(null)
-    // Limpar storage quando implementado
-    // sessionStorage.removeItem(TOKEN_KEY)
-    // sessionStorage.removeItem(USER_KEY)
-    
-    // TODO: Chamar API de logout para invalidar token no servidor
-    // await fetch('/api/auth/logout', { method: 'POST' })
-    
     router.push("/")
   }, [router])
 
   const value: AuthContextType = {
     user,
     isAuthenticated: !!user,
+    isMaster: user?.perfil === "Master",
     login,
     logout,
     token,
