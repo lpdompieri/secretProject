@@ -4,10 +4,17 @@ import { createContext, useContext, useState, useCallback, useEffect, useMemo, t
 import { useAuth } from "@/contexts/auth-context"
 import { getAllEmpresas } from "@/mocks/empresas"
 
+interface EmpresaOption {
+  codigo: string
+  nome: string
+}
+
 interface EmpresaContextType {
-  empresaAtiva: string
+  empresaAtiva: string        // codigo da empresa ativa, ou "TODAS"
   setEmpresaAtiva: (codigo: string) => void
-  empresas: { codigo: string; nome: string }[]
+  empresas: EmpresaOption[]   // lista completa (sem "Todas")
+  empresasComTodas: EmpresaOption[] // lista com opcao "Todas" no inicio (para Master)
+  isTodasSelecionada: boolean
 }
 
 const EmpresaContext = createContext<EmpresaContextType | undefined>(undefined)
@@ -16,14 +23,19 @@ export function EmpresaProvider({ children }: { children: ReactNode }) {
   const { user, isMaster } = useAuth()
   const [empresaAtiva, setEmpresaAtivaState] = useState<string>("")
 
-  // Memoizar para evitar nova referencia a cada render
   const empresas = useMemo(() => getAllEmpresas(), [])
+
+  const empresasComTodas = useMemo(() => [
+    { codigo: "TODAS", nome: "Todas as Empresas" },
+    ...empresas,
+  ], [empresas])
 
   // Sincronizar empresa ativa com o usuario logado
   useEffect(() => {
     if (user) {
       if (isMaster) {
-        setEmpresaAtivaState(empresas.length > 0 ? empresas[0].codigo : "")
+        // Master inicia com "Todas" selecionada
+        setEmpresaAtivaState("TODAS")
       } else {
         setEmpresaAtivaState(user.empresa)
       }
@@ -40,6 +52,8 @@ export function EmpresaProvider({ children }: { children: ReactNode }) {
     empresaAtiva,
     setEmpresaAtiva,
     empresas,
+    empresasComTodas,
+    isTodasSelecionada: empresaAtiva === "TODAS",
   }
 
   return <EmpresaContext.Provider value={value}>{children}</EmpresaContext.Provider>

@@ -12,7 +12,10 @@ interface DashboardHeaderProps {
 
 export function DashboardHeader({ onMenuClick }: DashboardHeaderProps) {
   const { user, isMaster, logout } = useAuth()
-  const { empresaAtiva, setEmpresaAtiva, empresas } = useEmpresa()
+  const { empresaAtiva, setEmpresaAtiva, empresas, empresasComTodas } = useEmpresa()
+
+  // Busca o nome da empresa ativa para exibir em usuarios nao-master
+  const nomeEmpresaAtiva = empresas.find((e) => e.codigo === empresaAtiva)?.nome || empresaAtiva
 
   return (
     <header className="fixed top-0 left-0 right-0 z-40 h-16 bg-primary shadow-md">
@@ -41,34 +44,35 @@ export function DashboardHeader({ onMenuClick }: DashboardHeaderProps) {
         </div>
 
         <div className="flex items-center gap-4">
-          {/* Empresa info - dinamico conforme perfil */}
-          {user && !isMaster && user.empresa && (
-            <div className="hidden sm:flex items-center gap-2 text-primary-foreground text-sm">
-              <Building2 className="h-4 w-4" aria-hidden="true" />
-              <span>
-                Empresa: <span className="font-semibold">{user.empresa}</span>
-              </span>
-            </div>
-          )}
-
+          {/* Master: combo com opcao "Todas" + empresas */}
           {user && isMaster && (
             <div className="hidden sm:flex items-center gap-2">
               <Building2 className="h-4 w-4 text-primary-foreground" aria-hidden="true" />
               <Select value={empresaAtiva} onValueChange={setEmpresaAtiva}>
                 <SelectTrigger 
-                  className="w-48 h-8 bg-primary-foreground/10 border-primary-foreground/20 text-primary-foreground text-sm focus:ring-primary-foreground/30"
+                  className="w-56 h-8 bg-primary-foreground/10 border-primary-foreground/20 text-primary-foreground text-sm focus:ring-primary-foreground/30"
                   aria-label="Selecionar empresa"
                 >
                   <SelectValue placeholder="Selecionar empresa" />
                 </SelectTrigger>
                 <SelectContent>
-                  {empresas.map((emp) => (
+                  {empresasComTodas.map((emp) => (
                     <SelectItem key={emp.codigo} value={emp.codigo}>
-                      {emp.codigo} - {emp.nome}
+                      {emp.codigo === "TODAS" ? emp.nome : `${emp.codigo} - ${emp.nome}`}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+          )}
+
+          {/* Nao-Master: mostra empresa fixa */}
+          {user && !isMaster && user.empresa && (
+            <div className="hidden sm:flex items-center gap-2 text-primary-foreground text-sm">
+              <Building2 className="h-4 w-4" aria-hidden="true" />
+              <span>
+                Empresa: <span className="font-semibold">{nomeEmpresaAtiva}</span>
+              </span>
             </div>
           )}
 

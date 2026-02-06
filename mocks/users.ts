@@ -12,6 +12,7 @@ export interface MockUser {
   email: string
   password: string
   name: string
+  telefone: string
   empresa: string
   perfil: "Vendedor" | "Gerente" | "Financeiro" | "Master"
 }
@@ -22,6 +23,7 @@ export const MOCK_USERS: MockUser[] = [
     email: "lpdompieri@gmail.com",
     password: "q1w2e3r$",
     name: "Luis Dompieri",
+    telefone: "(17) 99812-3456",
     empresa: "ES001",
     perfil: "Vendedor",
   },
@@ -30,6 +32,7 @@ export const MOCK_USERS: MockUser[] = [
     email: "dhdompieri@gmail.com",
     password: "112233",
     name: "Danielle Dompieri",
+    telefone: "(11) 98765-4321",
     empresa: "LJ001",
     perfil: "Gerente",
   },
@@ -38,6 +41,7 @@ export const MOCK_USERS: MockUser[] = [
     email: "master@gmail.com",
     password: "master",
     name: "User Master",
+    telefone: "(11) 90000-0000",
     empresa: "",
     perfil: "Master",
   },
