@@ -2,220 +2,141 @@
 
 import React, { useState, useRef } from "react"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import {
-  Card,
-  CardContent,
-} from "@/components/ui/card"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
-import {
-  ArrowLeft,
-  FileText,
-  CheckCircle2,
-  Loader2,
-  X,
-} from "lucide-react"
+import { Card, CardContent } from "@/components/ui/card"
+import { Loader2, CheckCircle2, X, FileText } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 /* ===============================
    TIPOS
 ================================ */
 
-interface ProductRegisterProps {
-  onBack: () => void
-}
-
-type RegisterMode = "manual" | "csv"
 type RegisterStep = "form" | "processing" | "success"
 
-interface ProcessingStep {
-  label: string
-  duration: number
-  completed: boolean
-  active: boolean
+type DebugLog = {
+  step: string
+  status: "info" | "ok" | "error"
+  message: string
 }
-
-interface PresignedDebug {
-  attempted: boolean
-  success: boolean
-  uploadUrl?: string
-  error?: string
-}
-
-const PROCESSING_STEPS: Omit<
-  ProcessingStep,
-  "completed" | "active"
->[] = [
-  { label: "Validando dados informados", duration: 1500 },
-  { label: "Enviando arquivo para o S3", duration: 2000 },
-  { label: "Registrando importação", duration: 1500 },
-]
 
 /* ===============================
    INTEGRAÇÃO
 ================================ */
 
 async function getPresignedUrl() {
-  const res = await fetch("/api/uploads/presigned", {
-    method: "POST",
-  })
+  const res = await fetch("/api/uploads/presigned", { method: "POST" })
 
-  if (!res.ok) {
-    const text = await res.text()
-    throw new Error(text || "Erro ao gerar URL de upload")
+  return {
+    ok: res.ok,
+    status: res.status,
+    body: await res.json(),
   }
-
-  return res.json() as Promise<{
-    uploadUrl: string
-    key: string
-    expiresInSeconds: number
-  }>
 }
 
 async function uploadCsvToS3(uploadUrl: string, file: File) {
-  const res = await fetch(uploadUrl, {
+  return fetch(uploadUrl, {
     method: "PUT",
-    headers: {
-      "Content-Type": "text/csv",
-    },
+    headers: { "Content-Type": "text/csv" },
     body: file,
   })
-
-  if (!res.ok) {
-    throw new Error("Erro ao enviar CSV para o S3")
-  }
 }
 
 /* ===============================
    COMPONENTE
 ================================ */
 
-export function ProductRegister({ onBack }: ProductRegisterProps) {
-  const [mode, setMode] = useState<RegisterMode>("manual")
+export function ProductRegister({ onBack }: { onBack: () => void }) {
   const [step, setStep] = useState<RegisterStep>("form")
-  const [processingSteps, setProcessingSteps] = useState<ProcessingStep[]>([])
-
-  const [codigo, setCodigo] = useState("")
-  const [descricao, setDescricao] = useState("")
-  const [ncm, setNcm] = useState("")
-  const [origemFiscal, setOrigemFiscal] = useState("")
-  const [formError, setFormError] = useState<string | null>(null)
-
-  const [selectedFile, setSelectedFile] = useState<File | null>(null)
+  const [file, setFile] = useState<File | null>(null)
+  const [logs, setLogs] = useState<DebugLog[]>([])
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  const [presignedDebug, setPresignedDebug] =
-    useState<PresignedDebug | null>(null)
+  function log(step: string, status: DebugLog["status"], message: string) {
+    setLogs((prev) => [...prev, { step, status, message }])
+  }
 
-  /* ===============================
-     PROCESSAMENTO
-  ================================ */
+  async function processCsv() {
+    if (!file) return
 
-  async function processRegistration() {
+    setLogs([])
     setStep("processing")
-    setFormError(null)
-    setPresignedDebug(null)
-
-    const steps: ProcessingStep[] = PROCESSING_STEPS.map((s) => ({
-      ...s,
-      completed: false,
-      active: false,
-    }))
-    setProcessingSteps(steps)
 
     try {
-      if (mode === "csv" && selectedFile) {
-        setPresignedDebug({ attempted: true, success: false })
+      log("START", "info", "Iniciando processo de envio")
 
-        const presigned = await getPresignedUrl()
+      /* 1️⃣ Arquivo */
+      log("FILE", "ok", `Arquivo selecionado: ${file.name} (${file.size} bytes)`)
 
-        setPresignedDebug({
-          attempted: true,
-          success: true,
-          uploadUrl: presigned.uploadUrl,
-        })
+      /* 2️⃣ Presigned */
+      log("PRESIGNED", "info", "Chamando API /api/uploads/presigned")
+      const presigned = await getPresignedUrl()
 
-        await uploadCsvToS3(presigned.uploadUrl, selectedFile)
+      if (!presigned.ok) {
+        log("PRESIGNED", "error", `Erro HTTP ${presigned.status}`)
+        throw new Error("Falha ao gerar presigned URL")
       }
 
-      for (let i = 0; i < steps.length; i++) {
-        setProcessingSteps((prev) =>
-          prev.map((s, idx) => ({
-            ...s,
-            active: idx === i,
-            completed: idx < i,
-          }))
-        )
+      log("PRESIGNED", "ok", "Resposta recebida da API")
 
-        await new Promise((r) => setTimeout(r, steps[i].duration))
-
-        setProcessingSteps((prev) =>
-          prev.map((s, idx) => ({
-            ...s,
-            active: false,
-            completed: idx <= i,
-          }))
-        )
+      const uploadUrl = presigned.body.uploadUrl
+      if (!uploadUrl) {
+        log("PRESIGNED", "error", "uploadUrl não veio no response")
+        throw new Error("uploadUrl ausente")
       }
 
+      log("PRESIGNED", "ok", "uploadUrl extraída com sucesso")
+
+      /* 3️⃣ Upload */
+      log("UPLOAD", "info", "Montando PUT para S3")
+      const uploadRes = await uploadCsvToS3(uploadUrl, file)
+
+      if (!uploadRes.ok) {
+        log(
+          "UPLOAD",
+          "error",
+          `Falha no PUT S3 – status ${uploadRes.status}`
+        )
+        throw new Error("Erro no upload S3")
+      }
+
+      log("UPLOAD", "ok", "Arquivo enviado com sucesso para o S3")
+
+      /* 4️⃣ Final */
+      log("DONE", "ok", "Fluxo finalizado sem erros")
       setStep("success")
     } catch (err) {
-      setFormError(err instanceof Error ? err.message : "Erro inesperado")
-
-      setPresignedDebug((prev) =>
-        prev
-          ? { ...prev, success: false, error: String(err) }
-          : prev
-      )
-
+      log("ERROR", "error", String(err))
       setStep("form")
     }
   }
 
   /* ===============================
-     HANDLERS
-  ================================ */
-
-  function handleCsvSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    if (!selectedFile) {
-      setFormError("Selecione um arquivo CSV")
-      return
-    }
-    processRegistration()
-  }
-
-  function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]
-    if (!file || !file.name.endsWith(".csv")) {
-      setFormError("Arquivo inválido")
-      return
-    }
-    setSelectedFile(file)
-    setFormError(null)
-  }
-
-  function handleRemoveFile() {
-    setSelectedFile(null)
-    if (fileInputRef.current) fileInputRef.current.value = ""
-  }
-
-  /* ===============================
-     TELAS
+     UI
   ================================ */
 
   if (step === "processing") {
     return (
       <Card>
-        <CardContent className="py-12 text-center">
-          <Loader2 className="h-10 w-10 animate-spin mx-auto mb-4" />
-          Processando…
+        <CardContent className="space-y-4 py-6">
+          <div className="flex items-center gap-2">
+            <Loader2 className="animate-spin" />
+            <span>Processando…</span>
+          </div>
+
+          <div className="space-y-2 text-sm">
+            {logs.map((l, i) => (
+              <div
+                key={i}
+                className={cn(
+                  "rounded p-2 border",
+                  l.status === "ok" && "bg-green-50 border-green-200",
+                  l.status === "error" && "bg-red-50 border-red-200",
+                  l.status === "info" && "bg-slate-50"
+                )}
+              >
+                <strong>{l.step}:</strong> {l.message}
+              </div>
+            ))}
+          </div>
         </CardContent>
       </Card>
     )
@@ -224,74 +145,46 @@ export function ProductRegister({ onBack }: ProductRegisterProps) {
   if (step === "success") {
     return (
       <Card>
-        <CardContent className="py-12 text-center">
-          <CheckCircle2 className="h-12 w-12 text-green-600 mx-auto mb-4" />
-          Cadastro concluído
+        <CardContent className="py-10 text-center space-y-3">
+          <CheckCircle2 className="h-10 w-10 text-green-600 mx-auto" />
+          <p className="font-semibold">Cadastro concluído</p>
+          <Button onClick={onBack}>Voltar</Button>
         </CardContent>
       </Card>
     )
   }
 
   return (
-    <div className="space-y-4">
-      <Button variant="ghost" onClick={onBack}>
-        <ArrowLeft className="mr-2 h-4 w-4" />
-        Voltar
-      </Button>
+    <Card>
+      <CardContent className="space-y-4 py-6">
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".csv"
+          onChange={(e) => setFile(e.target.files?.[0] || null)}
+        />
 
-      <Card>
-        <CardContent className="space-y-4">
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".csv"
-            onChange={handleFileSelect}
-          />
+        {file && (
+          <div className="flex items-center gap-2 text-sm">
+            <FileText />
+            {file.name}
+            <Button
+              size="icon"
+              variant="ghost"
+              onClick={() => {
+                setFile(null)
+                if (fileInputRef.current) fileInputRef.current.value = ""
+              }}
+            >
+              <X />
+            </Button>
+          </div>
+        )}
 
-          {selectedFile && (
-            <div className="flex items-center gap-2">
-              <FileText />
-              {selectedFile.name}
-              <Button
-                size="icon"
-                variant="ghost"
-                onClick={handleRemoveFile}
-              >
-                <X />
-              </Button>
-            </div>
-          )}
-
-          {formError && (
-            <p className="text-red-600 font-medium">{formError}</p>
-          )}
-
-          {presignedDebug && (
-            <div className="rounded border p-3 text-sm bg-slate-50">
-              <p>
-                <strong>Presigned URL:</strong>{" "}
-                {presignedDebug.success ? "GERADA ✅" : "NÃO GERADA ❌"}
-              </p>
-
-              {presignedDebug.uploadUrl && (
-                <p className="break-all text-xs mt-1">
-                  {presignedDebug.uploadUrl}
-                </p>
-              )}
-
-              {presignedDebug.error && (
-                <p className="text-red-600 mt-1">
-                  {presignedDebug.error}
-                </p>
-              )}
-            </div>
-          )}
-
-          <Button onClick={handleCsvSubmit}>
-            Enviar CSV
-          </Button>
-        </CardContent>
-      </Card>
-    </div>
+        <Button onClick={processCsv} disabled={!file}>
+          Enviar CSV
+        </Button>
+      </CardContent>
+    </Card>
   )
 }
