@@ -27,7 +27,8 @@ export async function POST() {
       },
       cache: "no-store",
     })
-
+    console.log ("CHAMOU O GET PARA GERAR URL"),
+    
     if (!res.ok) {
       const text = await res.text()
       console.error("LAMBDA ERROR", res.status, text)
@@ -39,12 +40,15 @@ export async function POST() {
     }
 
     const data = await res.json()
+    console.log(JSON.stringify(data)),
 
     return NextResponse.json({
       uploadUrl: data.uploadUrl,
       key: data.key,
       expiresInSeconds: data.expiresInSeconds,
     })
+      console.log ("PASSOU DA LINHA 49"),
+
   } catch (err) {
     console.error("PRESIGNED PROXY ERROR", err)
 
