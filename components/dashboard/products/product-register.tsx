@@ -32,11 +32,22 @@ import { cn } from "@/lib/utils"
    CONFIG TEMPORÁRIA (DEV ONLY)
 ================================ */
 
-const PRESIGNED_API_URL =
-  process.env.NEXT_PUBLIC_PRESIGNED_API_URL!
+async function getPresignedUrl() {
+  const res = await fetch("/api/uploads/presigned", {
+    method: "POST",
+  })
 
-const BASIC_AUTH =
-  process.env.NEXT_PUBLIC_BASIC_AUTH!
+  if (!res.ok) {
+    throw new Error("Erro ao gerar URL de upload")
+  }
+
+  return res.json() as Promise<{
+    uploadUrl: string
+    key: string
+    expiresInSeconds: number
+  }>
+}
+
 
 /* ===============================
    TIPOS
