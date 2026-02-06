@@ -29,27 +29,6 @@ import {
 import { cn } from "@/lib/utils"
 
 /* ===============================
-   CONFIG TEMPORÁRIA (DEV ONLY)
-================================ */
-
-async function getPresignedUrl() {
-  const res = await fetch("/api/uploads/presigned", {
-    method: "POST",
-  })
-
-  if (!res.ok) {
-    throw new Error("Erro ao gerar URL de upload")
-  }
-
-  return res.json() as Promise<{
-    uploadUrl: string
-    key: string
-    expiresInSeconds: number
-  }>
-}
-
-
-/* ===============================
    TIPOS
 ================================ */
 
@@ -77,15 +56,12 @@ const PROCESSING_STEPS: Omit<
 ]
 
 /* ===============================
-   FUNÇÕES DE INTEGRAÇÃO
+   INTEGRAÇÃO (PROXY NEXT)
 ================================ */
 
 async function getPresignedUrl() {
-  const res = await fetch(PRESIGNED_API_URL, {
-    method: "GET",
-    headers: {
-      Authorization: BASIC_AUTH,
-    },
+  const res = await fetch("/api/uploads/presigned", {
+    method: "POST",
   })
 
   if (!res.ok) {
@@ -130,10 +106,6 @@ export function ProductRegister({ onBack }: ProductRegisterProps) {
 
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
-
-  /* ===============================
-     PROCESSAMENTO
-  ================================ */
 
   async function processRegistration() {
     setStep("processing")
@@ -181,10 +153,6 @@ export function ProductRegister({ onBack }: ProductRegisterProps) {
     }
   }
 
-  /* ===============================
-     HANDLERS
-  ================================ */
-
   function handleManualSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!codigo || !descricao || !ncm || !origemFiscal) {
@@ -222,10 +190,6 @@ export function ProductRegister({ onBack }: ProductRegisterProps) {
     setStep("form")
     onBack()
   }
-
-  /* ===============================
-     TELAS
-  ================================ */
 
   if (step === "processing") {
     return (
