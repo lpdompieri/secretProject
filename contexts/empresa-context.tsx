@@ -1,6 +1,6 @@
 "use client"
 
-import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from "react"
+import { createContext, useContext, useState, useCallback, useEffect, useMemo, type ReactNode } from "react"
 import { useAuth } from "@/contexts/auth-context"
 import { getAllEmpresas } from "@/mocks/empresas"
 
@@ -16,16 +16,15 @@ export function EmpresaProvider({ children }: { children: ReactNode }) {
   const { user, isMaster } = useAuth()
   const [empresaAtiva, setEmpresaAtivaState] = useState<string>("")
 
-  const empresas = getAllEmpresas()
+  // Memoizar para evitar nova referencia a cada render
+  const empresas = useMemo(() => getAllEmpresas(), [])
 
   // Sincronizar empresa ativa com o usuario logado
   useEffect(() => {
     if (user) {
       if (isMaster) {
-        // Master inicia sem empresa selecionada, pode escolher
         setEmpresaAtivaState(empresas.length > 0 ? empresas[0].codigo : "")
       } else {
-        // Usuarios normais usam a empresa do seu cadastro
         setEmpresaAtivaState(user.empresa)
       }
     } else {
