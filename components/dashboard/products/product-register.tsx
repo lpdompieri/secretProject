@@ -3,13 +3,9 @@
 import React, { useState, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import {
   Card,
   CardContent,
-  CardHeader,
-  CardTitle,
-  CardDescription,
 } from "@/components/ui/card"
 import {
   Select,
@@ -20,7 +16,6 @@ import {
 } from "@/components/ui/select"
 import {
   ArrowLeft,
-  Upload,
   FileText,
   CheckCircle2,
   Loader2,
@@ -46,6 +41,13 @@ interface ProcessingStep {
   active: boolean
 }
 
+interface PresignedDebug {
+  attempted: boolean
+  success: boolean
+  uploadUrl?: string
+  error?: string
+}
+
 const PROCESSING_STEPS: Omit<
   ProcessingStep,
   "completed" | "active"
@@ -56,7 +58,7 @@ const PROCESSING_STEPS: Omit<
 ]
 
 /* ===============================
-   INTEGRAÇÃO (PROXY NEXT)
+   INTEGRAÇÃO
 ================================ */
 
 async function getPresignedUrl() {
@@ -65,7 +67,8 @@ async function getPresignedUrl() {
   })
 
   if (!res.ok) {
-    throw new Error("Erro ao gerar URL de upload")
+    const text = await res.text()
+    throw new Error(text || "Erro ao gerar URL de upload")
   }
 
   return res.json() as Promise<{
@@ -107,9 +110,17 @@ export function ProductRegister({ onBack }: ProductRegisterProps) {
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
+  const [presignedDebug, setPresignedDebug] =
+    useState<PresignedDebug | null>(null)
+
+  /* ===============================
+     PROCESSAMENTO
+  ================================ */
+
   async function processRegistration() {
     setStep("processing")
     setFormError(null)
+    setPresignedDebug(null)
 
     const steps: ProcessingStep[] = PROCESSING_STEPS.map((s) => ({
       ...s,
@@ -120,8 +131,17 @@ export function ProductRegister({ onBack }: ProductRegisterProps) {
 
     try {
       if (mode === "csv" && selectedFile) {
-        const { uploadUrl } = await getPresignedUrl()
-        await uploadCsvToS3(uploadUrl, selectedFile)
+        setPresignedDebug({ attempted: true, success: false })
+
+        const presigned = await getPresignedUrl()
+
+        setPresignedDebug({
+          attempted: true,
+          success: true,
+          uploadUrl: presigned.uploadUrl,
+        })
+
+        await uploadCsvToS3(presigned.uploadUrl, selectedFile)
       }
 
       for (let i = 0; i < steps.length; i++) {
@@ -146,21 +166,21 @@ export function ProductRegister({ onBack }: ProductRegisterProps) {
 
       setStep("success")
     } catch (err) {
-      setFormError(
-        err instanceof Error ? err.message : "Erro inesperado"
+      setFormError(err instanceof Error ? err.message : "Erro inesperado")
+
+      setPresignedDebug((prev) =>
+        prev
+          ? { ...prev, success: false, error: String(err) }
+          : prev
       )
+
       setStep("form")
     }
   }
 
-  function handleManualSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    if (!codigo || !descricao || !ncm || !origemFiscal) {
-      setFormError("Preencha todos os campos")
-      return
-    }
-    processRegistration()
-  }
+  /* ===============================
+     HANDLERS
+  ================================ */
 
   function handleCsvSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -186,39 +206,16 @@ export function ProductRegister({ onBack }: ProductRegisterProps) {
     if (fileInputRef.current) fileInputRef.current.value = ""
   }
 
-  function handleBackToSearch() {
-    setStep("form")
-    onBack()
-  }
+  /* ===============================
+     TELAS
+  ================================ */
 
   if (step === "processing") {
     return (
       <Card>
-        <CardContent className="py-12">
-          <div className="flex flex-col items-center gap-6">
-            <Loader2 className="h-12 w-12 animate-spin text-primary" />
-            <div className="w-full max-w-md space-y-3">
-              {processingSteps.map((s, i) => (
-                <div
-                  key={i}
-                  className={cn(
-                    "flex items-center gap-3 p-3 rounded-lg",
-                    s.active && "bg-primary/10",
-                    s.completed && "bg-green-50"
-                  )}
-                >
-                  {s.completed ? (
-                    <CheckCircle2 className="h-5 w-5 text-green-600" />
-                  ) : s.active ? (
-                    <Loader2 className="h-5 w-5 animate-spin" />
-                  ) : (
-                    <div className="h-5 w-5 rounded-full border" />
-                  )}
-                  <span>{s.label}</span>
-                </div>
-              ))}
-            </div>
-          </div>
+        <CardContent className="py-12 text-center">
+          <Loader2 className="h-10 w-10 animate-spin mx-auto mb-4" />
+          Processando…
         </CardContent>
       </Card>
     )
@@ -228,102 +225,73 @@ export function ProductRegister({ onBack }: ProductRegisterProps) {
     return (
       <Card>
         <CardContent className="py-12 text-center">
-          <CheckCircle2 className="h-14 w-14 text-green-600 mx-auto mb-4" />
-          <h2 className="text-xl font-semibold mb-2">
-            Cadastro concluído
-          </h2>
-          <Button onClick={handleBackToSearch}>
-            Voltar
-          </Button>
+          <CheckCircle2 className="h-12 w-12 text-green-600 mx-auto mb-4" />
+          Cadastro concluído
         </CardContent>
       </Card>
     )
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center gap-3">
-        <Button variant="ghost" size="icon" onClick={onBack}>
-          <ArrowLeft className="h-5 w-5" />
-        </Button>
-        <h2 className="text-xl font-semibold">
-          Cadastrar Produto
-        </h2>
-      </div>
+    <div className="space-y-4">
+      <Button variant="ghost" onClick={onBack}>
+        <ArrowLeft className="mr-2 h-4 w-4" />
+        Voltar
+      </Button>
 
-      <div className="flex gap-2 border-b">
-        <button
-          onClick={() => setMode("manual")}
-          className={cn(
-            "px-4 py-2 border-b-2",
-            mode === "manual"
-              ? "border-primary"
-              : "border-transparent"
+      <Card>
+        <CardContent className="space-y-4">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".csv"
+            onChange={handleFileSelect}
+          />
+
+          {selectedFile && (
+            <div className="flex items-center gap-2">
+              <FileText />
+              {selectedFile.name}
+              <Button
+                size="icon"
+                variant="ghost"
+                onClick={handleRemoveFile}
+              >
+                <X />
+              </Button>
+            </div>
           )}
-        >
-          Manual
-        </button>
-        <button
-          onClick={() => setMode("csv")}
-          className={cn(
-            "px-4 py-2 border-b-2",
-            mode === "csv"
-              ? "border-primary"
-              : "border-transparent"
+
+          {formError && (
+            <p className="text-red-600 font-medium">{formError}</p>
           )}
-        >
-          CSV
-        </button>
-      </div>
 
-      {mode === "manual" ? (
-        <Card>
-          <CardContent className="space-y-4">
-            <form onSubmit={handleManualSubmit} className="space-y-4">
-              <Input placeholder="Código" value={codigo} onChange={(e) => setCodigo(e.target.value)} />
-              <Input placeholder="Descrição" value={descricao} onChange={(e) => setDescricao(e.target.value)} />
-              <Input placeholder="NCM" value={ncm} onChange={(e) => setNcm(e.target.value)} />
+          {presignedDebug && (
+            <div className="rounded border p-3 text-sm bg-slate-50">
+              <p>
+                <strong>Presigned URL:</strong>{" "}
+                {presignedDebug.success ? "GERADA ✅" : "NÃO GERADA ❌"}
+              </p>
 
-              <Select value={origemFiscal} onValueChange={setOrigemFiscal}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Origem Fiscal" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="nacional">Nacional</SelectItem>
-                  <SelectItem value="importado">Importado</SelectItem>
-                </SelectContent>
-              </Select>
+              {presignedDebug.uploadUrl && (
+                <p className="break-all text-xs mt-1">
+                  {presignedDebug.uploadUrl}
+                </p>
+              )}
 
-              {formError && <p className="text-red-600">{formError}</p>}
-              <Button type="submit">Cadastrar</Button>
-            </form>
-          </CardContent>
-        </Card>
-      ) : (
-        <Card>
-          <CardContent className="space-y-4">
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".csv"
-              onChange={handleFileSelect}
-            />
+              {presignedDebug.error && (
+                <p className="text-red-600 mt-1">
+                  {presignedDebug.error}
+                </p>
+              )}
+            </div>
+          )}
 
-            {selectedFile && (
-              <div className="flex items-center gap-2">
-                <FileText />
-                {selectedFile.name}
-                <Button size="icon" variant="ghost" onClick={handleRemoveFile}>
-                  <X />
-                </Button>
-              </div>
-            )}
-
-            {formError && <p className="text-red-600">{formError}</p>}
-            <Button onClick={handleCsvSubmit}>Enviar CSV</Button>
-          </CardContent>
-        </Card>
-      )}
+          <Button onClick={handleCsvSubmit}>
+            Enviar CSV
+          </Button>
+        </CardContent>
+      </Card>
     </div>
   )
 }
