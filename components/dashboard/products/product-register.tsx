@@ -10,7 +10,7 @@ import { cn } from "@/lib/utils"
    TIPOS
 ================================ */
 
-type RegisterStep = "form" | "processing"
+type RegisterStep = "form" | "processing" | "success"
 
 type DebugLog = {
   step: string
@@ -23,19 +23,31 @@ type DebugLog = {
 ================================ */
 
 async function getPresignedUrl() {
-  const res = await fetch("/api/uploads/presigned", { method: "POST" })
+  const res = await fetch("/api/uploads/presigned", {
+    method: "POST",
+    cache: "no-store",
+  })
+
+  let body: any = null
+  try {
+    body = await res.json()
+  } catch {
+    body = null
+  }
 
   return {
     ok: res.ok,
     status: res.status,
-    body: await res.json(),
+    body,
   }
 }
 
 async function uploadCsvToS3(uploadUrl: string, file: File) {
   return fetch(uploadUrl, {
     method: "PUT",
-    headers: { "Content-Type": "text/csv" },
+    headers: {
+      "Content-Type": "text/csv",
+    },
     body: file,
   })
 }
@@ -61,50 +73,78 @@ export function ProductRegister({ onBack }: { onBack: () => void }) {
     setStep("processing")
 
     try {
-      log("START", "info", "Iniciando processo de envio")
+      /* ===============================
+         1️⃣ ARQUIVO
+      ================================ */
+      log("START", "info", "Iniciando fluxo de upload")
+      log(
+        "FILE",
+        "ok",
+        `Arquivo selecionado: ${file.name} (${file.size} bytes)`
+      )
 
-      /* 1️⃣ Arquivo */
-      log("FILE", "ok", `Arquivo selecionado: ${file.name} (${file.size} bytes)`)
-
-      /* 2️⃣ Presigned */
-      log("PRESIGNED", "info", "Chamando API /api/uploads/presigned")
+      /* ===============================
+         2️⃣ PRESIGNED URL
+      ================================ */
+      log("PRESIGNED", "info", "Chamando /api/uploads/presigned")
       const presigned = await getPresignedUrl()
 
       if (!presigned.ok) {
-        log("PRESIGNED", "error", `Erro HTTP ${presigned.status}`)
+        log(
+          "PRESIGNED",
+          "error",
+          `Erro HTTP ${presigned.status} ao gerar presigned`
+        )
         throw new Error("Falha ao gerar presigned URL")
       }
 
-      log("PRESIGNED", "ok", "Resposta recebida da API")
-
-      const uploadUrl = presigned.body.uploadUrl
-      if (!uploadUrl) {
-        log("PRESIGNED", "error", "uploadUrl não veio no response")
-        throw new Error("uploadUrl ausente")
+      if (!presigned.body?.uploadUrl) {
+        log(
+          "PRESIGNED",
+          "error",
+          "Resposta não contém uploadUrl"
+        )
+        throw new Error("uploadUrl ausente no response")
       }
 
-      log("PRESIGNED", "ok", "uploadUrl extraída com sucesso")
+      log("PRESIGNED", "ok", "Presigned URL gerada com sucesso")
+      log(
+        "PRESIGNED",
+        "info",
+        `Key gerada: ${presigned.body.key ?? "não informada"}`
+      )
 
-      /* 3️⃣ Upload */
-      log("UPLOAD", "info", "Montando PUT para S3")
-      const uploadRes = await uploadCsvToS3(uploadUrl, file)
+      /* ===============================
+         3️⃣ UPLOAD S3
+      ================================ */
+      log("UPLOAD", "info", "Enviando arquivo para o S3 (PUT)")
+      const uploadRes = await uploadCsvToS3(
+        presigned.body.uploadUrl,
+        file
+      )
 
       if (!uploadRes.ok) {
         log(
           "UPLOAD",
           "error",
-          `Falha no PUT S3 – status ${uploadRes.status}`
+          `S3 retornou status ${uploadRes.status}`
         )
-        throw new Error("Erro no upload S3")
+        throw new Error("Erro no upload para o S3")
       }
 
-      log("UPLOAD", "ok", "Arquivo enviado com sucesso para o S3")
+      log("UPLOAD", "ok", "Upload concluído com sucesso no S3")
 
-      /* 4️⃣ Final */
+      /* ===============================
+         4️⃣ FINAL
+      ================================ */
       log("DONE", "ok", "Fluxo finalizado sem erros")
       setStep("success")
     } catch (err) {
-      log("ERROR", "error", String(err))
+      log(
+        "ERROR",
+        "error",
+        err instanceof Error ? err.message : String(err)
+      )
       setStep("form")
     }
   }
@@ -137,6 +177,14 @@ export function ProductRegister({ onBack }: { onBack: () => void }) {
               </div>
             ))}
           </div>
+
+          {/* botão para NÃO sair da tela */}
+          <Button
+            variant="outline"
+            onClick={() => setStep("form")}
+          >
+            Voltar (manter logs)
+          </Button>
         </CardContent>
       </Card>
     )
@@ -173,7 +221,9 @@ export function ProductRegister({ onBack }: { onBack: () => void }) {
               variant="ghost"
               onClick={() => {
                 setFile(null)
-                if (fileInputRef.current) fileInputRef.current.value = ""
+                if (fileInputRef.current) {
+                  fileInputRef.current.value = ""
+                }
               }}
             >
               <X />
