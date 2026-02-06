@@ -8,8 +8,11 @@ const BASIC_AUTH =
 
 export async function POST() {
   try {
+    /* ===============================
+       1️⃣ VALIDAR ENV
+    ================================ */
     if (!LAMBDA_PRESIGNED_URL || !BASIC_AUTH) {
-      console.error("ENV MISSING", {
+      console.error("❌ ENV MISSING", {
         hasLambdaUrl: !!LAMBDA_PRESIGNED_URL,
         hasAuth: !!BASIC_AUTH,
       })
@@ -20,6 +23,11 @@ export async function POST() {
       )
     }
 
+    console.log("1️⃣ Chamando Lambda para gerar presigned URL")
+
+    /* ===============================
+       2️⃣ CHAMAR LAMBDA
+    ================================ */
     const res = await fetch(LAMBDA_PRESIGNED_URL, {
       method: "GET",
       headers: {
@@ -27,11 +35,14 @@ export async function POST() {
       },
       cache: "no-store",
     })
-    console.log ("CHAMOU O GET PARA GERAR URL"),
-    
+
     if (!res.ok) {
       const text = await res.text()
-      console.error("LAMBDA ERROR", res.status, text)
+
+      console.error("❌ LAMBDA ERROR", {
+        status: res.status,
+        body: text,
+      })
 
       return NextResponse.json(
         { error: "Erro ao gerar URL de upload" },
@@ -39,18 +50,26 @@ export async function POST() {
       )
     }
 
+    /* ===============================
+       3️⃣ PARSE RESPONSE
+    ================================ */
     const data = await res.json()
-    console.log(JSON.stringify(data)),
 
+    console.log("2️⃣ Presigned URL gerada com sucesso", {
+      key: data.key,
+      expiresInSeconds: data.expiresInSeconds,
+    })
+
+    /* ===============================
+       4️⃣ RETORNAR PARA O FRONT
+    ================================ */
     return NextResponse.json({
       uploadUrl: data.uploadUrl,
       key: data.key,
       expiresInSeconds: data.expiresInSeconds,
     })
-      console.log ("PASSOU DA LINHA 49"),
-
   } catch (err) {
-    console.error("PRESIGNED PROXY ERROR", err)
+    console.error("❌ PRESIGNED PROXY ERROR", err)
 
     return NextResponse.json(
       { error: "Erro interno ao gerar URL" },
