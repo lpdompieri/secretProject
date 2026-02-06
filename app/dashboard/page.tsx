@@ -16,19 +16,31 @@ import { cn } from "@/lib/utils"
 
 export default function DashboardPage() {
   const router = useRouter()
-  const { isAuthenticated } = useAuth()
+  const { isAuthenticated, isAuthLoading } = useAuth()
   
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const [activeSection, setActiveSection] = useState<MenuSection>("cockpit")
 
-  // Verificar autenticacao
+  // Verificar autenticacao somente apos o carregamento inicial
   useEffect(() => {
-    if (!isAuthenticated) {
+    if (!isAuthLoading && !isAuthenticated) {
       router.push("/")
     }
-  }, [isAuthenticated, router])
+  }, [isAuthenticated, isAuthLoading, router])
 
-  // Nao renderizar ate verificar autenticacao
+  // Mostrar loading enquanto verifica autenticacao
+  if (isAuthLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="flex flex-col items-center gap-3">
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+          <span className="text-sm text-muted-foreground">Carregando...</span>
+        </div>
+      </div>
+    )
+  }
+
+  // Nao renderizar se nao autenticado (redirect vai acontecer via useEffect)
   if (!isAuthenticated) {
     return null
   }
