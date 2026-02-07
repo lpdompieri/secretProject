@@ -1,29 +1,52 @@
 import { NextResponse } from "next/server"
 
 export async function GET(req: Request) {
-  const { searchParams } = new URL(req.url)
-  const valor = searchParams.get("valor")
+  try {
+    const { searchParams } = new URL(req.url)
+    const valor = searchParams.get("valor")
 
-  if (!valor) {
-    return NextResponse.json(
-      { error: "Valor obrigatorio" },
-      { status: 400 }
-    )
-  }
+    console.log("[BNDES][API] Requisicao recebida. Valor:", valor)
 
-  const token = "TOKEN_BNDES_TESTE" // depois real
-
-  const response = await fetch(
-    `https://apigw-h.bndes.gov.br/simulacao/financiamento?valor=${valor}`,
-    {
-      headers: {
-        Authorization: `Bearer ${token}`,
-        Accept: "application/json",
-      },
+    if (!valor) {
+      return NextResponse.json(
+        { error: "Parametro valor obrigatorio" },
+        { status: 400 }
+      )
     }
-  )
 
-  const data = await response.json()
+    // ⚠️ AJUSTE AQUI se necessario
+    const BNDES_BASE_URL = "https://apigw-h.bndes.gov.br"
 
-  return NextResponse.json(data)
-}
+    const url = `${BNDES_BASE_URL}/simulacao/financiamento?valor=${valor}`
+
+    console.log("[BNDES][API] Chamando BNDES:", url)
+
+    const response = await fetch(url, {
+      method: "GET",
+      headers: {
+        Accept: "application/json",
+        // 🔐 Se o BNDES exigir token, descomente:
+        // Authorization: `Bearer ${process.env.BNDES_TOKEN}`,
+      },
+    })
+
+    console.log("[BNDES][API] Status BNDES:", response.status)
+
+    const text = await response.text()
+    console.log("[BNDES][API] Body bruto:", text)
+
+    if (!response.ok) {
+      return NextResponse.json(
+        { error: "Erro BNDES", status: response.status, body: text },
+        { status: 502 }
+      )
+    }
+
+    const data = JSON.parse(text)
+
+    return NextResponse.json(data)
+  } catch (error: any) {
+    console.error("[BNDES][API] ERRO FATAL:", error)
+    return NextResponse.json(
+      { error: "Erro interno", message: error?.message },
+      { sta
