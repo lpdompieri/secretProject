@@ -177,38 +177,48 @@ export function PaymentCheckout({
   // =============================================================================
 
   useEffect(() => {
-    async function loadParcelamento() {
-      try {
-        setLoadingParcelamento(true)
-        setParcelamentoError(null)
+  async function loadParcelamento() {
+    try {
+      console.log("[BNDES] Iniciando consulta de parcelamento")
 
-        const token = await fetchBndesToken()
+      setLoadingParcelamento(true)
 
-        const response = await fetchBndesInstallments(token, {
-          cnpj: order.cliente.cnpj,
-          valorTotal: order.valorBase,
-        })
+      const token = await fetchBndesToken()
+      console.log("[BNDES] Token obtido:", token)
 
-        const adaptado: InstallmentOption[] = response.parcelas.map((p) => ({
-          parcelas: p.numeroParcelas,
-          valorParcela: p.valorParcela,
-          valorTotal: p.valorTotal,
-          taxaJuros: p.taxaJuros,
-          valorJuros: p.valorTotal - order.valorBase,
-        }))
-
-        setOpcoesParcelamento(adaptado)
-        setParcelasSelecionadas(adaptado[0]?.parcelas ?? 1)
-      } catch (err) {
-        console.error(err)
-        setParcelamentoError("Erro ao consultar parcelamento no BNDES")
-      } finally {
-        setLoadingParcelamento(false)
+      const payload = {
+        cnpj: order.cliente.cnpj.replace(/\D/g, ""),
+        valorTotal: order.valorBase,
       }
-    }
 
-    loadParcelamento()
-  }, [order])
+      console.log("[BNDES] Payload enviado:", payload)
+
+      const response = await fetchBndesInstallments(token, payload)
+
+      console.log("[BNDES] Resposta bruta da API:", response)
+
+      const parcelasAdaptadas = response.parcelas.map((p: any) => ({
+        parcelas: p.numeroParcelas,
+        valorParcela: p.valorParcela,
+        valorTotal: p.valorTotal,
+        taxaJuros: p.taxaJuros,
+        valorJuros: p.valorTotal - order.valorBase,
+      }))
+
+      console.log("[BNDES] Parcelas adaptadas:", parcelasAdaptadas)
+
+      setOpcoesParcelamento(parcelasAdaptadas)
+    } catch (err: any) {
+      console.error("[BNDES] ERRO AO CONSULTAR PARCELAMENTO:", err)
+      setParcelamentoError("Erro ao consultar parcelamento no BNDES")
+    } finally {
+      setLoadingParcelamento(false)
+    }
+  }
+
+  loadParcelamento()
+}, [order])
+
 
   // =============================================================================
   // DERIVADOS
