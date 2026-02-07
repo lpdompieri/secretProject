@@ -14,8 +14,9 @@ export async function GET(req: Request) {
       )
     }
 
-    // ⚠️ AJUSTE AQUI se necessario
-    const BNDES_BASE_URL = "https://apigw-h.bndes.gov.br"
+    // ⚠️ Endpoint correto do BNDES (conforme Postman)
+    const BNDES_BASE_URL =
+      "https://apigw-h.bndes.gov.br/cbn-fornecedor/v1"
 
     const url = `${BNDES_BASE_URL}/simulacao/financiamento?valor=${valor}`
 
@@ -25,8 +26,7 @@ export async function GET(req: Request) {
       method: "GET",
       headers: {
         Accept: "application/json",
-        // 🔐 Se o BNDES exigir token, descomente:
-        // Authorization: `Bearer ${process.env.BNDES_TOKEN}`,
+        // Authorization: `Bearer ${process.env.BNDES_TOKEN}`, // se exigir
       },
     })
 
@@ -37,7 +37,11 @@ export async function GET(req: Request) {
 
     if (!response.ok) {
       return NextResponse.json(
-        { error: "Erro BNDES", status: response.status, body: text },
+        {
+          error: "Erro BNDES",
+          status: response.status,
+          body: text,
+        },
         { status: 502 }
       )
     }
@@ -47,6 +51,13 @@ export async function GET(req: Request) {
     return NextResponse.json(data)
   } catch (error: any) {
     console.error("[BNDES][API] ERRO FATAL:", error)
+
     return NextResponse.json(
-      { error: "Erro interno", message: error?.message },
-      { sta
+      {
+        error: "Erro interno",
+        message: error?.message ?? "Erro desconhecido",
+      },
+      { status: 500 }
+    )
+  }
+}
