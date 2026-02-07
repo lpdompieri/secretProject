@@ -1,36 +1,37 @@
 export async function fetchBndesInstallments(
   token: string,
-  payload: {
-    cnpj: string
-    valorTotal: number
-  }
+  valorTotal: number
 ) {
-  const url = `${process.env.NEXT_PUBLIC_BNDES_BASE_URL}/parcelamento`
+  const baseUrl = process.env.NEXT_PUBLIC_BNDES_BASE_URL
 
-  console.log("[BNDES][SERVICE] URL:", url)
+  if (!baseUrl) {
+    throw new Error("BNDES_BASE_URL não configurada")
+  }
+
+  const url = `${baseUrl}/simulacao/financiamento?valor=${valorTotal}`
+
+  console.log("[BNDES][SERVICE] GET:", url)
   console.log("[BNDES][SERVICE] Token:", token)
-  console.log("[BNDES][SERVICE] Payload:", payload)
 
   const response = await fetch(url, {
-    method: "POST",
+    method: "GET",
     headers: {
-      "Content-Type": "application/json",
       Authorization: `Bearer ${token}`,
+      Accept: "application/json",
     },
-    body: JSON.stringify(payload),
   })
 
   console.log("[BNDES][SERVICE] Status:", response.status)
 
+  if (!response.ok) {
+    const text = await response.text()
+    console.error("[BNDES][SERVICE] Erro bruto:", text)
+    throw new Error(`Erro BNDES ${response.status}`)
+  }
+
   const data = await response.json()
 
   console.log("[BNDES][SERVICE] Body:", data)
-
-  if (!response.ok) {
-    throw new Error(
-      data?.message || `Erro HTTP ${response.status}`
-    )
-  }
 
   return data
 }
