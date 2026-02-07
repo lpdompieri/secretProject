@@ -142,14 +142,18 @@ export function PaymentCheckout({
 
         console.log("[BNDES] Resposta:", response)
 
-        const parcelasAdaptadas: InstallmentOption[] =
-          response.parcelas.map((p: any) => ({
-            parcelas: p.numeroParcelas,
-            valorParcela: p.valorParcela,
-            valorTotal: p.valorTotal,
-            taxaJuros: p.taxaJuros,
-            valorJuros: p.valorTotal - order.valorBase,
-          }))
+const parcelasAdaptadas: InstallmentOption[] =
+  response.formasPagamento.map((p: any) => {
+    const valorTotal = p.valorParcela * p.prazo
+
+    return {
+      parcelas: p.prazo,
+      valorParcela: p.valorParcela,
+      valorTotal,
+      taxaJuros: response.taxa,
+      valorJuros: valorTotal - order.valorBase,
+    }
+  })
 
         setOpcoesParcelamento(parcelasAdaptadas)
         setParcelasSelecionadas(parcelasAdaptadas[0]?.parcelas ?? 1)
