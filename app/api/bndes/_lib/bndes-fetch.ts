@@ -1,8 +1,9 @@
 // app/api/bndes/_lib/bndes-fetch.ts
+export const runtime = "nodejs"
 
-console.log("[BNDES-FETCH] arquivo carregado")
 
 import { getBndesToken } from "./bndes-auth"
+console.log("[BNDES-FETCH] arquivo carregado")
 
 export async function bndesFetch(
   url: string,
