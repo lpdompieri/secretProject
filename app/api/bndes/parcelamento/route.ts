@@ -3,6 +3,13 @@ import { bndesFetch } from "../_lib/bndes-fetch"
 
 export const runtime = "nodejs"
 
+console.log("[ENV CHECK]", {
+  TOKEN_URL: process.env.BNDES_TOKEN_URL,
+  API_BASE: process.env.BNDES_API_BASE,
+  CLIENT_ID: process.env.BNDES_CLIENT_ID ? "OK" : "MISSING",
+  CLIENT_SECRET: process.env.BNDES_CLIENT_SECRET ? "OK" : "MISSING",
+})
+
 const BNDES_API_BASE =
   "https://apigw-h.bndes.gov.br/cbn-fornecedor/v1"
 
