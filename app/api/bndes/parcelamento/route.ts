@@ -5,8 +5,6 @@ import { bndesFetch } from "../_lib/bndes-fetch"
 
 export async function GET(req: Request) {
   try {
-    console.log("🔥 ROUTE PARCELAMENTO CARREGADO 🔥")
-
     const { searchParams } = new URL(req.url)
     const valor = searchParams.get("valor")
 
@@ -17,40 +15,23 @@ export async function GET(req: Request) {
       )
     }
 
-    const {
-      BNDES_API_BASE,
-      BNDES_TOKEN_URL,
-      BNDES_CLIENT_ID,
-      BNDES_CLIENT_SECRET,
-    } = process.env
+    const apiBase = process.env.BNDES_API_BASE
 
-    console.log("[ENV CHECK ROUTE]", {
-      BNDES_API_BASE,
-      BNDES_TOKEN_URL,
-      BNDES_CLIENT_ID: !!BNDES_CLIENT_ID,
-      BNDES_CLIENT_SECRET: !!BNDES_CLIENT_SECRET,
-    })
-
-    if (
-      !BNDES_API_BASE ||
-      !BNDES_TOKEN_URL ||
-      !BNDES_CLIENT_ID ||
-      !BNDES_CLIENT_SECRET
-    ) {
-      throw new Error("Variáveis de ambiente do BNDES não configuradas")
+    if (!apiBase) {
+      throw new Error("BNDES_API_BASE não configurada")
     }
 
-    const url = `${BNDES_API_BASE}/simulacao/financiamento?valor=${valor}`
+    const url = `${apiBase}/simulacao/financiamento?valor=${valor}`
 
-    const response = await bndesFetch({
-      url,
-      tokenUrl: BNDES_TOKEN_URL,
-      clientId: BNDES_CLIENT_ID,
-      clientSecret: BNDES_CLIENT_SECRET,
-    })
+    console.log("[BNDES] Chamando:", url)
+
+    // ✅ AQUI ESTÁ A CORREÇÃO
+    const response = await bndesFetch(url)
 
     if (!response.ok) {
       const text = await response.text()
+      console.error("[BNDES] Erro BNDES:", text)
+
       return NextResponse.json(
         { error: "Erro BNDES", body: text },
         { status: 502 }
@@ -58,6 +39,8 @@ export async function GET(req: Request) {
     }
 
     const data = await response.json()
+    console.log("[BNDES] Payload OK")
+
     return NextResponse.json(data)
   } catch (error: any) {
     console.error("[BNDES] Erro interno:", error)
