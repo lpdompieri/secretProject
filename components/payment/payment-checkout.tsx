@@ -117,7 +117,7 @@ export function PaymentCheckout({
     useState<CardValidationErrors>({})
   const [formError, setFormError] = useState<string | null>(null)
 
-  // 🔥 MODAL BNDES
+  // MODAL BNDES
   const [showModal, setShowModal] = useState(false)
   const [bndesStep, setBndesStep] =
     useState<"creating" | "finalizing" | "error">("creating")
@@ -133,9 +133,14 @@ export function PaymentCheckout({
     async function loadParcelamento() {
       try {
         setLoadingParcelamento(true)
+        setParcelamentoError(null)
+
         const resp = await fetch(
           `/api/bndes/parcelamento?valor=${order.valorBase}`
         )
+
+        if (!resp.ok) throw new Error()
+
         const data = await resp.json()
 
         const adaptadas = data.formasPagamento.map((p: any) => {
@@ -183,11 +188,15 @@ export function PaymentCheckout({
     const errors = validateCardData(cardData)
     setCardErrors(errors)
 
-    if (hasValidationErrors(errors) || !parcelamentoAtual) return
+    if (hasValidationErrors(errors) || !parcelamentoAtual) {
+      setFormError("Preencha os dados corretamente")
+      return
+    }
 
     try {
       setShowModal(true)
       setBndesStep("creating")
+      setBndesError(null)
 
       const binCartao = cardData.numero
         .replace(/\D/g, "")
@@ -217,7 +226,7 @@ export function PaymentCheckout({
       setNumeroPedidoBndes(pedido)
       setBndesStep("finalizing")
 
-      await fetch(`/api/bndes/pedido/${pedido}`, {
+      const finalizar = await fetch(`/api/bndes/pedido/${pedido}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -239,11 +248,13 @@ export function PaymentCheckout({
         }),
       })
 
+      if (!finalizar.ok) throw new Error("Erro ao finalizar pedido")
+
       setShowModal(false)
       onProceed(parcelamentoAtual, cardData)
     } catch (err: any) {
       setBndesStep("error")
-      setBndesError(err.message)
+      setBndesError(err.message || "Erro no fluxo BNDES")
     }
   }
 
@@ -255,7 +266,7 @@ export function PaymentCheckout({
     cardData.cpfTitular
 
   // =============================================================================
-  // RENDER (AGORA NÃO QUEBRA 😄)
+  // RENDER
   // =============================================================================
 
   return (
@@ -267,9 +278,123 @@ export function PaymentCheckout({
         error={bndesError}
       />
 
-      {/* 🔽 AQUI É A SUA TELA ORIGINAL, INTACTA */}
       <div className="space-y-6">
-        {/* todo o JSX que você já tinha continua igual */}
+        <div className="flex items-center gap-4">
+          <Button variant="ghost" size="icon" onClick={onBack}>
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+
+          <div>
+            <h1 className="text-3xl font-bold">Checkout</h1>
+            <p className="text-muted-foreground">
+              Pedido #{order.numeroPedido}
+            </p>
+          </div>
+        </div>
+
+        {formError && (
+          <Alert variant="destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>{formError}</AlertDescription>
+          </Alert>
+        )}
+
+        <div className="grid gap-6 lg:grid-cols-3">
+          <div className="lg:col-span-2 space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Resumo do Pedido</CardTitle>
+              </CardHeader>
+              <CardContent className="flex justify-between font-bold">
+                <span>Total</span>
+                <span>{formatCurrency(order.valorBase)}</span>
+              </CardContent>
+            </Card>
+
+            <CardInputForm
+              cardData={cardData}
+              onChange={handleCardDataChange}
+              errors={cardErrors}
+              onValidate={() => true}
+            />
+          </div>
+
+          <Card>
+            <CardHeader className="bg-primary text-primary-foreground">
+              <CardTitle className="flex items-center gap-2">
+                <CreditCard className="h-5 w-5" />
+                Cartão BNDES
+              </CardTitle>
+            </CardHeader>
+
+            <CardContent className="space-y-6 pt-6">
+              <Label>Número de Parcelas</Label>
+
+              {loadingParcelamento && (
+                <p className="text-sm text-muted-foreground">
+                  Consultando parcelamento...
+                </p>
+              )}
+
+              {parcelamentoError && (
+                <Alert variant="destructive">
+                  <AlertDescription>
+                    {parcelamentoError}
+                  </AlertDescription>
+                </Alert>
+              )}
+
+              {!loadingParcelamento && !parcelamentoError && (
+                <Select
+                  value={parcelasSelecionadas.toString()}
+                  onValueChange={(v) =>
+                    setParcelasSelecionadas(Number(v))
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {opcoesParcelamento.map((op) => (
+                      <SelectItem
+                        key={op.parcelas}
+                        value={op.parcelas.toString()}
+                      >
+                        {op.parcelas}x de{" "}
+                        {formatCurrency(op.valorParcela)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+
+              {parcelamentoAtual && (
+                <>
+                  <Separator />
+                  <div className="flex justify-between font-bold">
+                    <span>Total</span>
+                    <span>
+                      {formatCurrency(parcelamentoAtual.valorTotal)}
+                    </span>
+                  </div>
+                </>
+              )}
+
+              <Button
+                onClick={handleProceed}
+                disabled={!isFormFilled}
+                className={cn(
+                  "w-full",
+                  isFormFilled
+                    ? "bg-secondary text-secondary-foreground"
+                    : "bg-muted text-muted-foreground"
+                )}
+              >
+                Iniciar Pagamento
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
       </div>
     </>
   )
