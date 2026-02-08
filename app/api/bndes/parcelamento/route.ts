@@ -1,5 +1,12 @@
 export const runtime = "nodejs"
 
+console.log("🔥 ROUTE PARCELAMENTO CARREGADO 🔥")
+console.log("ENV CHECK:", {
+  BNDES_API_BASE: process.env.BNDES_API_BASE,
+  BNDES_TOKEN_URL: process.env.BNDES_TOKEN_URL,
+  BNDES_CLIENT_ID: process.env.BNDES_CLIENT_ID ? "OK" : "MISSING",
+})
+
 import { NextResponse } from "next/server"
 import { bndesFetch } from "../_lib/bndes-fetch"
 
