@@ -1,25 +1,15 @@
-// app/api/bndes/_lib/bndes-auth.ts
+type GetTokenParams = {
+  tokenUrl: string
+  clientId: string
+  clientSecret: string
+}
 
-export const runtime = "nodejs"
-
-console.log("[BNDES-AUTH] arquivo carregado")
-
-export async function getBndesToken(): Promise<string> {
-  console.log("[BNDES-AUTH] getBndesToken chamado")
-  const clientId = process.env.BNDES_CLIENT_ID
-  const clientSecret = process.env.BNDES_CLIENT_SECRET
-  const tokenUrl = process.env.BNDES_TOKEN_URL
-
-console.log("[BNDES-AUTH] envs:", {
-  BNDES_CLIENT_ID: !!process.env.BNDES_CLIENT_ID,
-  BNDES_CLIENT_SECRET: !!process.env.BNDES_CLIENT_SECRET,
-  BNDES_TOKEN_URL: !!process.env.BNDES_TOKEN_URL,
-  BNDES_API_BASE: !!process.env.BNDES_API_BASE,
-})
-  
-  if (!clientId || !clientSecret || !tokenUrl) {
-    throw new Error("Variáveis de ambiente do BNDES não configuradas")
-  }
+export async function getBndesToken({
+  tokenUrl,
+  clientId,
+  clientSecret,
+}: GetTokenParams): Promise<string> {
+  console.log("[BNDES-AUTH] obtendo token")
 
   const basicAuth = Buffer.from(
     `${clientId}:${clientSecret}`
