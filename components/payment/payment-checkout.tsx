@@ -2,12 +2,15 @@
 
 /**
  * =============================================================================
- * COMPONENTE: CHECKOUT DE PAGAMENTO
+ * COMPONENTE: CHECKOUT DE PAGAMENTO – CARTÃO BNDES
  * =============================================================================
- * 
- * Parcelamento:
- * - Obtido via API BNDES (GET simulacao/financiamento)
- * - Token mock por enquanto
+ * - Consulta parcelamento via API interna (/api/bndes/parcelamento)
+ * - Client NÃO conhece token BNDES
+ * - Fluxo:
+ *   1) Simular parcelamento
+ *   2) Selecionar parcelas
+ *   3) Criar pedido BNDES
+ *   4) Finalizar pedido
  * =============================================================================
  */
 
@@ -15,7 +18,6 @@ import { useState, useMemo, useCallback, useEffect } from "react"
 import {
   ArrowLeft,
   CreditCard,
-  Receipt,
   AlertCircle,
 } from "lucide-react"
 
@@ -46,7 +48,6 @@ import type {
 } from "@/types/payment"
 
 import { cn } from "@/lib/utils"
-import { fetchBndesInstallments } from "@/services/payment/bndes/bndes.installments"
 
 // =============================================================================
 // UTIL
@@ -60,20 +61,29 @@ function formatCurrency(value: number): string {
 }
 
 // =============================================================================
-// VALIDACOES
+// VALIDAÇÕES
 // =============================================================================
 
 function validateCardData(cardData: CardData): CardValidationErrors {
   return {
-    numero: cardData.numero.replace(/\D/g, "").length !== 16
-      ? "Numero do cartao invalido"
+    numero:
+      cardData.numero.replace(/\D/g, "").length !== 16
+        ? "Número do cartão inválido"
+        : undefined,
+    nomeTitular: !cardData.nomeTitular
+      ? "Nome do titular obrigatório"
       : undefined,
-    nomeTitular: !cardData.nomeTitular ? "Nome obrigatorio" : undefined,
-    validade: cardData.validade.length !== 5 ? "Validade invalida" : undefined,
-    cvv: cardData.cvv.length !== 3 ? "CVV invalido" : undefined,
+    validade:
+      cardData.validade.length !== 5
+        ? "Validade inválida"
+        : undefined,
+    cvv:
+      cardData.cvv.length !== 3
+        ? "CVV inválido"
+        : undefined,
     cpfTitular:
       cardData.cpfTitular.replace(/\D/g, "").length !== 11
-        ? "CPF invalido"
+        ? "CPF inválido"
         : undefined,
   }
 }
@@ -83,21 +93,16 @@ function hasValidationErrors(errors: CardValidationErrors): boolean {
 }
 
 // =============================================================================
-// TOKEN (mock)
-// =============================================================================
-
-async function fetchBndesToken(): Promise<string> {
-  return "TOKEN_BNDES_TESTE"
-}
-
-// =============================================================================
 // COMPONENTE
 // =============================================================================
 
 interface PaymentCheckoutProps {
   order: Order
   onBack: () => void
-  onProceed: (parcelamento: InstallmentOption, cardData: CardData) => void
+  onProceed: (
+    parcelamento: InstallmentOption,
+    cardData: CardData
+  ) => void
 }
 
 export function PaymentCheckout({
@@ -106,9 +111,11 @@ export function PaymentCheckout({
   onProceed,
 }: PaymentCheckoutProps) {
   const [parcelasSelecionadas, setParcelasSelecionadas] = useState(1)
-  const [opcoesParcelamento, setOpcoesParcelamento] = useState<InstallmentOption[]>([])
+  const [opcoesParcelamento, setOpcoesParcelamento] =
+    useState<InstallmentOption[]>([])
   const [loadingParcelamento, setLoadingParcelamento] = useState(false)
-  const [parcelamentoError, setParcelamentoError] = useState<string | null>(null)
+  const [parcelamentoError, setParcelamentoError] =
+    useState<string | null>(null)
 
   const [cardData, setCardData] = useState<CardData>({
     numero: "",
@@ -118,11 +125,12 @@ export function PaymentCheckout({
     cpfTitular: "",
   })
 
-  const [cardErrors, setCardErrors] = useState<CardValidationErrors>({})
+  const [cardErrors, setCardErrors] =
+    useState<CardValidationErrors>({})
   const [formError, setFormError] = useState<string | null>(null)
 
   // =============================================================================
-  // CONSULTAR PARCELAMENTO BNDES (GET)
+  // CONSULTAR PARCELAMENTO (API INTERNA)
   // =============================================================================
 
   useEffect(() => {
@@ -133,37 +141,48 @@ export function PaymentCheckout({
         setLoadingParcelamento(true)
         setParcelamentoError(null)
 
-        const token = await fetchBndesToken()
-
-        const response = await fetchBndesInstallments(
-          token,
-          order.valorBase
+        const response = await fetch(
+          `/api/bndes/parcelamento?valor=${order.valorBase}`
         )
 
-        console.log("[BNDES] Resposta:", response)
+        if (!response.ok) {
+          throw new Error("Erro ao consultar parcelamento")
+        }
 
-if (!response.formasPagamento || !Array.isArray(response.formasPagamento)) {
-  throw new Error("Resposta de parcelamento inválida")
-}
+        const data = await response.json()
 
-const parcelasAdaptadas: InstallmentOption[] =
-  response.formasPagamento.map((p: any) => {
-    const total = p.valorParcela * p.prazo
+        if (
+          !data.formasPagamento ||
+          !Array.isArray(data.formasPagamento)
+        ) {
+          throw new Error("Resposta de parcelamento inválida")
+        }
 
-    return {
-      parcelas: p.prazo,
-      valorParcela: p.valorParcela,
-      valorTotal: total,
-      taxaJuros: response.taxa,
-      valorJuros: total - order.valorBase,
-    }
-  })
+        const parcelasAdaptadas: InstallmentOption[] =
+          data.formasPagamento.map((p: any) => {
+            const total = p.valorParcela * p.prazo
 
-        setOpcoesParcelamento(parcelasAdaptadas)
-        setParcelasSelecionadas(parcelasAdaptadas[0]?.parcelas ?? 1)
-      } catch (error) {
-        console.error("[BNDES] ERRO AO CONSULTAR PARCELAMENTO:", error)
-        setParcelamentoError("Erro ao consultar parcelamento no BNDES")
+            return {
+              parcelas: p.prazo,
+              valorParcela: p.valorParcela,
+              valorTotal: total,
+              taxaJuros: data.taxa,
+              valorJuros: total - order.valorBase,
+            }
+          })
+
+        // 🔥 garante ordem crescente
+        const ordenadas = parcelasAdaptadas.sort(
+          (a, b) => a.parcelas - b.parcelas
+        )
+
+        setOpcoesParcelamento(ordenadas)
+        setParcelasSelecionadas(ordenadas[0]?.parcelas ?? 1)
+      } catch (err) {
+        console.error("[BNDES] ERRO:", err)
+        setParcelamentoError(
+          "Erro ao consultar parcelamento no BNDES"
+        )
       } finally {
         setLoadingParcelamento(false)
       }
@@ -185,18 +204,91 @@ const parcelasAdaptadas: InstallmentOption[] =
     setFormError(null)
   }, [])
 
-  function handleProceed() {
+  // =============================================================================
+  // INICIAR PAGAMENTO
+  // =============================================================================
+
+  async function handleProceed() {
     const errors = validateCardData(cardData)
     setCardErrors(errors)
 
     if (hasValidationErrors(errors)) {
-      setFormError("Preencha os dados do cartao corretamente")
+      setFormError("Preencha os dados do cartão corretamente")
       return
     }
 
     if (!parcelamentoAtual) return
 
-    onProceed(parcelamentoAtual, cardData)
+    try {
+      setFormError(null)
+
+      const binCartao = cardData.numero
+        .replace(/\D/g, "")
+        .slice(0, 6)
+
+      // 1️⃣ Criar pedido
+      const criarPedidoResp = await fetch("/api/bndes/pedido", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          binCartao,
+          cpfCnpjComprador: "21882543000150", // mock
+        }),
+      })
+
+      if (!criarPedidoResp.ok) {
+        throw new Error("Erro ao criar pedido BNDES")
+      }
+
+      const pedidoBndes = await criarPedidoResp.json()
+      const numeroPedido =
+        pedidoBndes.numero ||
+        pedidoBndes.id ||
+        pedidoBndes.pedido
+
+      if (!numeroPedido) {
+        throw new Error("Número do pedido BNDES não retornado")
+      }
+
+      // 2️⃣ Finalizar pedido
+      const finalizarResp = await fetch(
+        `/api/bndes/pedido/${numeroPedido}`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            endereco: "Avenida Paulo Gracindo",
+            numero: "100",
+            bairro: "Gávea",
+            municipio: "Uberlândia",
+            uf: "MG",
+            cep: "38411145",
+            parcelas: parcelamentoAtual.parcelas,
+            valorPagamento: Number(
+              order.valorBase.toFixed(2)
+            ),
+            itens: [
+              {
+                produto: "7125",
+                quantidade: 1,
+                precoUnitario: Number(
+                  order.valorBase.toFixed(2)
+                ),
+              },
+            ],
+          }),
+        }
+      )
+
+      if (!finalizarResp.ok) {
+        throw new Error("Erro ao finalizar pedido BNDES")
+      }
+
+      onProceed(parcelamentoAtual, cardData)
+    } catch (err) {
+      console.error(err)
+      setFormError("Erro ao iniciar pagamento no BNDES")
+    }
   }
 
   const isFormFilled =
@@ -255,12 +347,12 @@ const parcelasAdaptadas: InstallmentOption[] =
           <CardHeader className="bg-primary text-primary-foreground">
             <CardTitle className="flex items-center gap-2">
               <CreditCard className="h-5 w-5" />
-              Cartao BNDES
+              Cartão BNDES
             </CardTitle>
           </CardHeader>
 
           <CardContent className="space-y-6 pt-6">
-            <Label>Numero de Parcelas</Label>
+            <Label>Número de Parcelas</Label>
 
             {loadingParcelamento && (
               <p className="text-sm text-muted-foreground">
@@ -270,37 +362,47 @@ const parcelasAdaptadas: InstallmentOption[] =
 
             {parcelamentoError && (
               <Alert variant="destructive">
-                <AlertDescription>{parcelamentoError}</AlertDescription>
+                <AlertDescription>
+                  {parcelamentoError}
+                </AlertDescription>
               </Alert>
             )}
 
-            {!loadingParcelamento && !parcelamentoError && (
-              <Select
-                value={parcelasSelecionadas.toString()}
-                onValueChange={(v) => setParcelasSelecionadas(Number(v))}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione" />
-                </SelectTrigger>
-                <SelectContent>
-                  {opcoesParcelamento.map((op) => (
-                    <SelectItem
-                      key={op.parcelas}
-                      value={op.parcelas.toString()}
-                    >
-                      {op.parcelas}x de {formatCurrency(op.valorParcela)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
+            {!loadingParcelamento &&
+              !parcelamentoError && (
+                <Select
+                  value={parcelasSelecionadas.toString()}
+                  onValueChange={(v) =>
+                    setParcelasSelecionadas(Number(v))
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {opcoesParcelamento.map((op) => (
+                      <SelectItem
+                        key={op.parcelas}
+                        value={op.parcelas.toString()}
+                      >
+                        {op.parcelas}x de{" "}
+                        {formatCurrency(op.valorParcela)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
 
             {parcelamentoAtual && (
               <>
                 <Separator />
                 <div className="flex justify-between font-bold">
                   <span>Total</span>
-                  <span>{formatCurrency(parcelamentoAtual.valorTotal)}</span>
+                  <span>
+                    {formatCurrency(
+                      parcelamentoAtual.valorTotal
+                    )}
+                  </span>
                 </div>
               </>
             )}
