@@ -1,33 +1,26 @@
 // app/api/bndes/_lib/bndes-auth.ts
+export const runtime = "nodejs"
 
-type GetTokenParams = {
-  tokenUrl: string
-  clientId: string
-  clientSecret: string
-}
-
-type CachedAuth = {
+let cachedToken: {
   token: string
-  cookie?: string
   expiresAt: number
-}
+} | null = null
 
-let cachedAuth: CachedAuth | null = null
-
-export async function getBndesToken({
-  tokenUrl,
-  clientId,
-  clientSecret,
-}: GetTokenParams): Promise<{ token: string; cookie?: string }> {
+export async function getBndesToken(): Promise<string> {
   console.log("[BNDES-AUTH] obtendo token")
 
-  // reutiliza token válido
-  if (cachedAuth && Date.now() < cachedAuth.expiresAt) {
-    console.log("[BNDES-AUTH] usando token em cache")
-    return {
-      token: cachedAuth.token,
-      cookie: cachedAuth.cookie,
-    }
+  const clientId = process.env.BNDES_CLIENT_ID
+  const clientSecret = process.env.BNDES_CLIENT_SECRET
+  const tokenUrl = process.env.BNDES_TOKEN_URL
+
+  if (!clientId || !clientSecret || !tokenUrl) {
+    throw new Error("Variáveis de ambiente do BNDES não configuradas")
+  }
+
+  // cache simples (1h)
+  if (cachedToken && cachedToken.expiresAt > Date.now()) {
+    console.log("[BNDES-AUTH] token reutilizado do cache")
+    return cachedToken.token
   }
 
   const basicAuth = Buffer.from(
@@ -40,7 +33,7 @@ export async function getBndesToken({
       Authorization: `Basic ${basicAuth}`,
       "Content-Type": "application/x-www-form-urlencoded",
     },
-    body: "grant_type=client_credentials",
+    body: "grant_type=client_credentials&scope=cbnpagamento_vendas",
   })
 
   if (!response.ok) {
@@ -50,26 +43,18 @@ export async function getBndesToken({
 
   const data = await response.json()
 
-  if (!data.access_token) {
-    throw new Error("Token BNDES não retornado")
+  if (!data.access_token || !data.token_type) {
+    throw new Error("Token BNDES inválido")
   }
 
-  const setCookie = response.headers.get("set-cookie") ?? undefined
+  const fullToken = `${data.token_type} ${data.access_token}`
 
-  cachedAuth = {
-    token: data.access_token,
-    cookie: setCookie,
-    // margem de segurança de 60s
-    expiresAt: Date.now() + (data.expires_in - 60) * 1000,
+  cachedToken = {
+    token: fullToken,
+    expiresAt: Date.now() + data.expires_in * 1000 - 60000,
   }
 
-  console.log("[BNDES-AUTH] token obtido e cacheado")
-  if (setCookie) {
-    console.log("[BNDES-AUTH] cookie de sessão capturado")
-  }
+  console.log("[BNDES-AUTH] token gerado com sucesso")
 
-  return {
-    token: cachedAuth.token,
-    cookie: cachedAuth.cookie,
-  }
+  return fullToken
 }
