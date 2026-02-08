@@ -1,20 +1,15 @@
-export async function GET(req: Request) {
-  console.log("[PARCELAMENTO] route chamado")
-  console.log("[PARCELAMENTO][ENV CHECK]", {
-    BNDES_CLIENT_ID: process.env.BNDES_CLIENT_ID,
-    BNDES_TOKEN_URL: process.env.BNDES_TOKEN_URL,
-    BNDES_API_BASE: process.env.BNDES_API_BASE,
-  })
-  
 import { NextResponse } from "next/server"
 import { bndesFetch } from "../_lib/bndes-fetch"
 
 export const runtime = "nodejs"
 
-const BNDES_API_BASE = "https://apigw-h.bndes.gov.br/cbn-fornecedor/v1"
+const BNDES_API_BASE =
+  "https://apigw-h.bndes.gov.br/cbn-fornecedor/v1"
 
 export async function GET(req: Request) {
   try {
+    console.log("[PARCELAMENTO] route chamada")
+
     const { searchParams } = new URL(req.url)
     const valor = searchParams.get("valor")
 
@@ -25,15 +20,19 @@ export async function GET(req: Request) {
       )
     }
 
+    console.log("[PARCELAMENTO] valor:", valor)
+
     const url = `${BNDES_API_BASE}/simulacao/financiamento?valor=${valor}`
 
-    console.log("[BNDES][ROUTE] URL:", url)
+    console.log("[PARCELAMENTO] URL BNDES:", url)
 
     const response = await bndesFetch(url)
 
+    console.log("[PARCELAMENTO] status BNDES:", response.status)
+
     if (!response.ok) {
       const text = await response.text()
-      console.error("[BNDES][ROUTE] Erro BNDES:", text)
+      console.error("[PARCELAMENTO] erro BNDES:", text)
 
       return NextResponse.json(
         { error: "Erro BNDES", body: text },
@@ -42,12 +41,17 @@ export async function GET(req: Request) {
     }
 
     const data = await response.json()
+    console.log("[PARCELAMENTO] sucesso")
+
     return NextResponse.json(data)
   } catch (error: any) {
-    console.error("[BNDES][ROUTE] Erro interno:", error)
+    console.error("[PARCELAMENTO] erro interno:", error)
 
     return NextResponse.json(
-      { error: "Erro interno", message: error.message },
+      {
+        error: "Erro interno",
+        message: error?.message ?? "erro desconhecido",
+      },
       { status: 500 }
     )
   }
