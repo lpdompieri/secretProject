@@ -1,5 +1,7 @@
 // app/api/bndes/_lib/bndes-auth.ts
 
+export const runtime = "nodejs"
+
 console.log("[BNDES-AUTH] arquivo carregado")
 
 export async function getBndesToken(): Promise<string> {
@@ -8,13 +10,12 @@ export async function getBndesToken(): Promise<string> {
   const clientSecret = process.env.BNDES_CLIENT_SECRET
   const tokenUrl = process.env.BNDES_TOKEN_URL
 
-    console.log("[BNDES-AUTH][ENV RAW]", {
-    BNDES_CLIENT_ID: clientId,
-    BNDES_CLIENT_SECRET: clientSecret ? "***" : clientSecret,
-    BNDES_TOKEN_URL: tokenUrl,
-    NODE_ENV: process.env.NODE_ENV,
-    VERCEL_ENV: process.env.VERCEL_ENV,
-  })
+console.log("[BNDES-AUTH] envs:", {
+  BNDES_CLIENT_ID: !!process.env.BNDES_CLIENT_ID,
+  BNDES_CLIENT_SECRET: !!process.env.BNDES_CLIENT_SECRET,
+  BNDES_TOKEN_URL: !!process.env.BNDES_TOKEN_URL,
+  BNDES_API_BASE: !!process.env.BNDES_API_BASE,
+})
   
   if (!clientId || !clientSecret || !tokenUrl) {
     throw new Error("Variáveis de ambiente do BNDES não configuradas")
