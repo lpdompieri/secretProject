@@ -1,46 +1,43 @@
 export const runtime = "nodejs"
 
 import { NextResponse } from "next/server"
-import { bndesFetch } from "../_lib/bndes-fetch"
 
 export async function POST(req: Request) {
   try {
     const body = await req.json()
 
-    const apiBase = process.env.BNDES_API_BASE
-    if (!apiBase) {
-      throw new Error("BNDES_API_BASE não configurada")
-    }
+    const bndesResp = await fetch(
+      "https://apigw-h.bndes.gov.br/cbn-fornecedor/v1/pedido",
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${process.env.BNDES_TOKEN}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(body),
+      }
+    )
 
-    const url = `${apiBase}/pedido`
+    const text = await bndesResp.text()
 
-    console.log("[BNDES][PEDIDO] Criando pedido:", body)
+    console.log("[BNDES] Pedido criado:", text)
 
-    const response = await bndesFetch(url, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(body),
-    })
-
-    if (!response.ok) {
-      const text = await response.text()
-      console.error("[BNDES][PEDIDO] Erro:", text)
-
+    if (!bndesResp.ok || !text) {
       return NextResponse.json(
-        { error: "Erro ao criar pedido", body: text },
-        { status: 502 }
+        { error: "Pedido não retornado pelo BNDES" },
+        { status: 500 }
       )
     }
 
-    const data = await response.json()
-
-    console.log("[BNDES][PEDIDO] Pedido criado:", data)
-
-    return NextResponse.json(data)
+    // ⚠️ DEVOLVE O TEXTO PURO PARA O FRONT (ISSO É O SEGREDO 💥)
+    return new NextResponse(text, {
+      status: 201,
+      headers: {
+        "Content-Type": "text/plain",
+      },
+    })
   } catch (error: any) {
-    console.error("[BNDES][PEDIDO] Erro interno:", error)
+    console.error("[BNDES] Erro interno:", error)
 
     return NextResponse.json(
       { error: "Erro interno", message: error.message },
