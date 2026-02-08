@@ -1,61 +1,56 @@
 import { NextResponse } from "next/server"
+import { bndesFetch } from "../_lib/bndes-fetch"
+
+export const runtime = "nodejs"
+
+const BNDES_API_BASE =
+  "https://apigw-h.bndes.gov.br/cbn-fornecedor/v1"
 
 export async function GET(req: Request) {
   try {
+    console.log("[PARCELAMENTO] route chamada")
+
     const { searchParams } = new URL(req.url)
     const valor = searchParams.get("valor")
 
-    console.log("[BNDES][API] Requisicao recebida. Valor:", valor)
-
     if (!valor) {
       return NextResponse.json(
-        { error: "Parametro valor obrigatorio" },
+        { error: "Valor obrigatório" },
         { status: 400 }
       )
     }
 
-    // ⚠️ Endpoint correto do BNDES (conforme Postman)
-    const BNDES_BASE_URL =
-      "https://apigw-h.bndes.gov.br/cbn-fornecedor/v1"
+    console.log("[PARCELAMENTO] valor:", valor)
 
-    const url = `${BNDES_BASE_URL}/simulacao/financiamento?valor=${valor}`
+    const url = `${BNDES_API_BASE}/simulacao/financiamento?valor=${valor}`
 
-    console.log("[BNDES][API] Chamando BNDES:", url)
+    console.log("[PARCELAMENTO] URL BNDES:", url)
 
-    const response = await fetch(url, {
-      method: "GET",
-      headers: {
-        Accept: "application/json",
-        // Authorization: `Bearer ${process.env.BNDES_TOKEN}`, // se exigir
-      },
-    })
+    const response = await bndesFetch(url)
 
-    console.log("[BNDES][API] Status BNDES:", response.status)
-
-    const text = await response.text()
-    console.log("[BNDES][API] Body bruto:", text)
+    console.log("[PARCELAMENTO] status BNDES:", response.status)
 
     if (!response.ok) {
+      const text = await response.text()
+      console.error("[PARCELAMENTO] erro BNDES:", text)
+
       return NextResponse.json(
-        {
-          error: "Erro BNDES",
-          status: response.status,
-          body: text,
-        },
+        { error: "Erro BNDES", body: text },
         { status: 502 }
       )
     }
 
-    const data = JSON.parse(text)
+    const data = await response.json()
+    console.log("[PARCELAMENTO] sucesso")
 
     return NextResponse.json(data)
   } catch (error: any) {
-    console.error("[BNDES][API] ERRO FATAL:", error)
+    console.error("[PARCELAMENTO] erro interno:", error)
 
     return NextResponse.json(
       {
         error: "Erro interno",
-        message: error?.message ?? "Erro desconhecido",
+        message: error?.message ?? "erro desconhecido",
       },
       { status: 500 }
     )
