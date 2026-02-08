@@ -240,11 +240,26 @@ export function PaymentCheckout({
         throw new Error("Erro ao criar pedido BNDES")
       }
 
-      const pedidoBndes = await criarPedidoResp.json()
-      const numeroPedido =
-        pedidoBndes.numero ||
-        pedidoBndes.id ||
-        pedidoBndes.pedido
+const contentType = criarPedidoResp.headers.get("content-type")
+
+let numeroPedidoBndes: string | null = null
+
+if (contentType && contentType.includes("application/json")) {
+  const json = await criarPedidoResp.json()
+  numeroPedidoBndes =
+    json.numero || json.id || json.pedido || null
+} else {
+  // BNDES REAL → retorna só o número no body
+  const text = await criarPedidoResp.text()
+  numeroPedidoBndes = text?.trim() || null
+}
+
+if (!numeroPedidoBndes) {
+  throw new Error("Número do pedido BNDES não retornado")
+}
+
+console.log("[BNDES] Pedido criado:", numeroPedidoBndes)
+
 
       if (!numeroPedido) {
         throw new Error("Número do pedido BNDES não retornado")
