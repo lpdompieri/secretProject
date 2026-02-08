@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { getBndesToken } from "../_lib/bndes-auth"
-
+import { bndesFetch } from "../_lib/bndes-fetch"
 export const runtime = "nodejs"
 
 
