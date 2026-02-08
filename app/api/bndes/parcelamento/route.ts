@@ -1,3 +1,11 @@
+export async function GET(req: Request) {
+  console.log("[PARCELAMENTO] route chamado")
+  console.log("[PARCELAMENTO][ENV CHECK]", {
+    BNDES_CLIENT_ID: process.env.BNDES_CLIENT_ID,
+    BNDES_TOKEN_URL: process.env.BNDES_TOKEN_URL,
+    BNDES_API_BASE: process.env.BNDES_API_BASE,
+  })
+  
 import { NextResponse } from "next/server"
 import { bndesFetch } from "../_lib/bndes-fetch"
 
