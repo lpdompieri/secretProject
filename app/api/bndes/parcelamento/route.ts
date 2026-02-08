@@ -1,17 +1,12 @@
 export const runtime = "nodejs"
 
-console.log("🔥 ROUTE PARCELAMENTO CARREGADO 🔥")
-console.log("ENV CHECK:", {
-  BNDES_API_BASE: process.env.BNDES_API_BASE,
-  BNDES_TOKEN_URL: process.env.BNDES_TOKEN_URL,
-  BNDES_CLIENT_ID: process.env.BNDES_CLIENT_ID ? "OK" : "MISSING",
-})
-
 import { NextResponse } from "next/server"
 import { bndesFetch } from "../_lib/bndes-fetch"
 
 export async function GET(req: Request) {
   try {
+    console.log("🔥 ROUTE PARCELAMENTO CARREGADO 🔥")
+
     const { searchParams } = new URL(req.url)
     const valor = searchParams.get("valor")
 
@@ -22,22 +17,40 @@ export async function GET(req: Request) {
       )
     }
 
-    const apiBase = process.env.BNDES_API_BASE
+    const {
+      BNDES_API_BASE,
+      BNDES_TOKEN_URL,
+      BNDES_CLIENT_ID,
+      BNDES_CLIENT_SECRET,
+    } = process.env
 
-    if (!apiBase) {
-      throw new Error("BNDES_API_BASE não configurada")
+    console.log("[ENV CHECK ROUTE]", {
+      BNDES_API_BASE,
+      BNDES_TOKEN_URL,
+      BNDES_CLIENT_ID: !!BNDES_CLIENT_ID,
+      BNDES_CLIENT_SECRET: !!BNDES_CLIENT_SECRET,
+    })
+
+    if (
+      !BNDES_API_BASE ||
+      !BNDES_TOKEN_URL ||
+      !BNDES_CLIENT_ID ||
+      !BNDES_CLIENT_SECRET
+    ) {
+      throw new Error("Variáveis de ambiente do BNDES não configuradas")
     }
 
-    const url = `${apiBase}/simulacao/financiamento?valor=${valor}`
+    const url = `${BNDES_API_BASE}/simulacao/financiamento?valor=${valor}`
 
-    console.log("[BNDES] Chamando:", url)
-
-    const response = await bndesFetch(url)
+    const response = await bndesFetch({
+      url,
+      tokenUrl: BNDES_TOKEN_URL,
+      clientId: BNDES_CLIENT_ID,
+      clientSecret: BNDES_CLIENT_SECRET,
+    })
 
     if (!response.ok) {
       const text = await response.text()
-      console.error("[BNDES] Erro BNDES:", text)
-
       return NextResponse.json(
         { error: "Erro BNDES", body: text },
         { status: 502 }
@@ -45,9 +58,6 @@ export async function GET(req: Request) {
     }
 
     const data = await response.json()
-
-    console.log("[BNDES] Payload OK")
-
     return NextResponse.json(data)
   } catch (error: any) {
     console.error("[BNDES] Erro interno:", error)
