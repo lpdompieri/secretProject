@@ -142,16 +142,20 @@ export function PaymentCheckout({
 
         console.log("[BNDES] Resposta:", response)
 
+if (!response.formasPagamento || !Array.isArray(response.formasPagamento)) {
+  throw new Error("Resposta de parcelamento inválida")
+}
+
 const parcelasAdaptadas: InstallmentOption[] =
   response.formasPagamento.map((p: any) => {
-    const valorTotal = p.valorParcela * p.prazo
+    const total = p.valorParcela * p.prazo
 
     return {
       parcelas: p.prazo,
       valorParcela: p.valorParcela,
-      valorTotal,
+      valorTotal: total,
       taxaJuros: response.taxa,
-      valorJuros: valorTotal - order.valorBase,
+      valorJuros: total - order.valorBase,
     }
   })
 
