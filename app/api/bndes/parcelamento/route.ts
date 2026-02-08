@@ -1,5 +1,8 @@
 import { NextResponse } from "next/server"
-import { bndesFetch } from "../_lib/bndes-fetch"
+import { getBndesToken } from "../_lib/bndes-auth"
+
+export const runtime = "nodejs"
+
 
 export async function GET(req: Request) {
   try {
