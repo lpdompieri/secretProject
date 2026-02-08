@@ -17,9 +17,18 @@ export async function getBndesToken(): Promise<string> {
       "Content-Type": "application/x-www-form-urlencoded",
       Authorization:
         "Basic " +
-        Buffer.from(
-          `${process.env.BNDES_CLIENT_ID}:${process.env.BNDES_CLIENT_SECRET}`
-        ).toString("base64"),
+const clientId = process.env.BNDES_CLIENT_ID
+const clientSecret = process.env.BNDES_CLIENT_SECRET
+const tokenUrl = process.env.BNDES_TOKEN_URL
+
+if (!clientId || !clientSecret || !tokenUrl) {
+  throw new Error("Variáveis de ambiente do BNDES não configuradas")
+}
+
+const basicAuth = Buffer.from(
+  `${clientId}:${clientSecret}`
+).toString("base64")
+
     },
     body: "grant_type=client_credentials",
   })
