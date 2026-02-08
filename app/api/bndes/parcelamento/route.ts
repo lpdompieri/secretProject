@@ -1,64 +1,21 @@
-import { NextResponse } from "next/server"
-import { bndesFetch } from "../_lib/bndes-fetch"
-
 export const runtime = "nodejs"
 
-console.log("[ENV CHECK]", {
-  TOKEN_URL: process.env.BNDES_TOKEN_URL,
-  API_BASE: process.env.BNDES_API_BASE,
-  CLIENT_ID: process.env.BNDES_CLIENT_ID ? "OK" : "MISSING",
-  CLIENT_SECRET: process.env.BNDES_CLIENT_SECRET ? "OK" : "MISSING",
-})
-
-const BNDES_API_BASE =
-  "https://apigw-h.bndes.gov.br/cbn-fornecedor/v1"
+import { NextResponse } from "next/server"
 
 export async function GET(req: Request) {
   try {
-    console.log("[PARCELAMENTO] route chamada")
+    console.log("[BNDES][ENV CHECK]", {
+      API_BASE: process.env.BNDES_API_BASE,
+      TOKEN_URL: process.env.BNDES_TOKEN_URL,
+      CLIENT_ID: process.env.BNDES_CLIENT_ID ? "OK" : "MISSING",
+      CLIENT_SECRET: process.env.BNDES_CLIENT_SECRET ? "OK" : "MISSING",
+    })
 
-    const { searchParams } = new URL(req.url)
-    const valor = searchParams.get("valor")
-
-    if (!valor) {
-      return NextResponse.json(
-        { error: "Valor obrigatório" },
-        { status: 400 }
-      )
-    }
-
-    console.log("[PARCELAMENTO] valor:", valor)
-
-    const url = `${BNDES_API_BASE}/simulacao/financiamento?valor=${valor}`
-
-    console.log("[PARCELAMENTO] URL BNDES:", url)
-
-    const response = await bndesFetch(url)
-
-    console.log("[PARCELAMENTO] status BNDES:", response.status)
-
-    if (!response.ok) {
-      const text = await response.text()
-      console.error("[PARCELAMENTO] erro BNDES:", text)
-
-      return NextResponse.json(
-        { error: "Erro BNDES", body: text },
-        { status: 502 }
-      )
-    }
-
-    const data = await response.json()
-    console.log("[PARCELAMENTO] sucesso")
-
-    return NextResponse.json(data)
+    return NextResponse.json({ ok: true })
   } catch (error: any) {
-    console.error("[PARCELAMENTO] erro interno:", error)
-
+    console.error("[BNDES] ERRO:", error)
     return NextResponse.json(
-      {
-        error: "Erro interno",
-        message: error?.message ?? "erro desconhecido",
-      },
+      { error: "Erro interno", message: error.message },
       { status: 500 }
     )
   }
