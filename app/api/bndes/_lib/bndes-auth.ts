@@ -1,5 +1,7 @@
 // app/api/bndes/_lib/bndes-auth.ts
 
+console.log("[BNDES-AUTH] arquivo carregado")
+
 export async function getBndesToken(): Promise<string> {
   const clientId = process.env.BNDES_CLIENT_ID
   const clientSecret = process.env.BNDES_CLIENT_SECRET
