@@ -8,13 +8,17 @@ const BNDES_PEDIDO_BASE =
 
 export async function PUT(
   req: Request,
-  { params }: { params: { pedido: string } }
+  context: { params: { pedido?: string } }
 ) {
   try {
     const body = await req.json()
-    const { pedido } = params
+
+    console.log("[BNDES][PEDIDO] Params recebidos:", context.params)
+
+    const pedido = context.params?.pedido
 
     if (!pedido) {
+      console.error("[BNDES][PEDIDO] Pedido undefined")
       return NextResponse.json(
         { error: "Número do pedido obrigatório" },
         { status: 400 }
@@ -36,7 +40,7 @@ export async function PUT(
 
     if (!response.ok) {
       const text = await response.text()
-      console.error("[BNDES][PEDIDO] Erro ao finalizar:", text)
+      console.error("[BNDES][PEDIDO] Erro BNDES:", text)
 
       return NextResponse.json(
         { error: "Erro ao finalizar pedido", body: text },
@@ -44,7 +48,6 @@ export async function PUT(
       )
     }
 
-    // ⚠️ essa API normalmente não retorna body útil
     const text = await response.text()
 
     console.log("[BNDES][PEDIDO] Pedido finalizado com sucesso")
