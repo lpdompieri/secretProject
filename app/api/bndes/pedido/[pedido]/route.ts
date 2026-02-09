@@ -10,12 +10,16 @@ export async function PUT(
   req: Request,
   context: { params: { pedido?: string } }
 ) {
+  // 🔥 LOGS DE PROVA
+  console.log("🔥 CONTEXT RAW:", context)
+  console.log("🔥 PARAMS RAW:", context.params)
+
   try {
     const body = await req.json()
 
-    console.log("[BNDES][PEDIDO] Params recebidos:", context.params)
-
     const pedido = context.params?.pedido
+
+    console.log("[BNDES][PEDIDO] Pedido recebido:", pedido)
 
     if (!pedido) {
       console.error("[BNDES][PEDIDO] Pedido undefined")
