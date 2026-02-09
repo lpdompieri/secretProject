@@ -208,24 +208,26 @@ export async function consultarPedidoParaPagamento(
             numeroPedido: "345678",
             cliente: {
               nome: "Empresa Exemplo LTDA",
-              cnpj: "12.345.678/0001-90",
+              cnpj: "21882543000150",
+            },
+            endereco:{
+                 bairro: "Gávea",
+                   cep: "38411145",
+           complemento: " ",
+              endereco: "Avenida Paulo Gracindo",
+             municipio: "Uberlândia",
+               numero: "100",
+                   uf: "MG"
             },
             dataPedido: new Date().toISOString(),
             itens: [
               {
-                codigo: "PROD001",
+                codigo: "7125",
                 descricao: "Equipamento Industrial A",
                 quantidade: 2,
-                valorUnitario: 3500,
-                valorTotal: 7000,
-              },
-              {
-                codigo: "PROD002",
-                descricao: "Pecas de Reposicao B",
-                quantidade: 5,
-                valorUnitario: 600,
-                valorTotal: 3000,
-              },
+                valorUnitario: 5000,
+                valorTotal: 1000,
+              }
             ],
             valorBase: 10000,
             status: "available",
