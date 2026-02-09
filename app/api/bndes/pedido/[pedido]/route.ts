@@ -1,27 +1,21 @@
-console.log("🔥🔥🔥 ROTA [pedido] CARREGADA 🔥🔥🔥")
-
 export const runtime = "nodejs"
 
 import { NextResponse } from "next/server"
 import { bndesFetch } from "../../_lib/bndes-fetch"
+
+console.log("🔥🔥🔥 ROTA [pedido] CARREGADA 🔥🔥🔥")
 
 const BNDES_PEDIDO_BASE =
   "https://apigw-h.bndes.gov.br/cbn-fornecedor/v1"
 
 export async function PUT(
   req: Request,
-  context: { params: { pedido?: string } }
+  { params }: { params: { pedido: string } }
 ) {
-  // 🔥 LOGS DE PROVA
-  console.log("🔥 CONTEXT RAW:", context)
-  console.log("🔥 PARAMS RAW:", context.params)
+  console.log("🔥 PARAMS RECEBIDOS:", params)
 
   try {
-    const body = await req.json()
-
-    const pedido = context.params?.pedido
-
-    console.log("[BNDES][PEDIDO] Pedido recebido:", pedido)
+    const pedido = params.pedido
 
     if (!pedido) {
       console.error("[BNDES][PEDIDO] Pedido undefined")
@@ -31,9 +25,11 @@ export async function PUT(
       )
     }
 
+    const body = await req.json()
+
     const url = `${BNDES_PEDIDO_BASE}/pedido/${pedido}`
 
-    console.log("[BNDES][PEDIDO] Finalizando pedido:", url)
+    console.log("[BNDES][PEDIDO] URL:", url)
     console.log("[BNDES][PEDIDO] Payload:", body)
 
     const response = await bndesFetch(url, {
@@ -44,17 +40,15 @@ export async function PUT(
       body: JSON.stringify(body),
     })
 
-    if (!response.ok) {
-      const text = await response.text()
-      console.error("[BNDES][PEDIDO] Erro BNDES:", text)
+    const text = await response.text()
 
+    if (!response.ok) {
+      console.error("[BNDES][PEDIDO] Erro BNDES:", text)
       return NextResponse.json(
         { error: "Erro ao finalizar pedido", body: text },
         { status: 502 }
       )
     }
-
-    const text = await response.text()
 
     console.log("[BNDES][PEDIDO] Pedido finalizado com sucesso")
 
