@@ -225,7 +225,10 @@ export function PaymentCheckout({
 
       setNumeroPedidoBndes(pedido)
       setBndesStep("finalizing")
-
+      
+console.log("🔥 PEDIDO QUE VOU USAR NO PUT:", pedido)
+console.log("🔥 URL:", `/api/bndes/pedido/${pedido}`)
+      
       const finalizar = await fetch(`/api/bndes/pedido/${pedido}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -247,7 +250,8 @@ export function PaymentCheckout({
           ],
         }),
       })
-
+      
+      
       if (!finalizar.ok) throw new Error("Erro ao finalizar pedido")
 
       setShowModal(false)
