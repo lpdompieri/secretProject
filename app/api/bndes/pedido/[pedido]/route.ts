@@ -1,3 +1,5 @@
+console.log("🔥🔥🔥 ROTA [pedido] CARREGADA 🔥🔥🔥")
+
 export const runtime = "nodejs"
 
 import { NextResponse } from "next/server"
