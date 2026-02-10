@@ -1,11 +1,7 @@
 "use client"
 
 import { useState, useMemo, useCallback, useEffect } from "react"
-import {
-  ArrowLeft,
-  CreditCard,
-  AlertCircle,
-} from "lucide-react"
+import { ArrowLeft, CreditCard, AlertCircle } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -81,16 +77,17 @@ function hasValidationErrors(errors: CardValidationErrors): boolean {
 }
 
 // =============================================================================
-// COMPONENTES
+// COMPONENTE
 // =============================================================================
 
 interface PaymentCheckoutProps {
   order: Order
   onBack: () => void
-  onProceed: (
-    parcelamento: InstallmentOption,
+  onProceed: (payload: {
+    parcelamento: InstallmentOption
     cardData: CardData
-  ) => void
+    numeroPedidoBndes: string
+  }) => void
 }
 
 export function PaymentCheckout({
@@ -181,7 +178,7 @@ export function PaymentCheckout({
   }, [])
 
   // =============================================================================
-  // INICIAR PAGAMENTO
+  // INICIAR PAGAMENTO (CRIAR + FINALIZAR PEDIDO)
   // =============================================================================
 
   async function handleProceed() {
@@ -202,6 +199,9 @@ export function PaymentCheckout({
         .replace(/\D/g, "")
         .slice(0, 6)
 
+      // =============================
+      // CRIAR PEDIDO
+      // =============================
       const criarResp = await fetch("/api/bndes/pedido-criar", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -211,8 +211,8 @@ export function PaymentCheckout({
         }),
       })
 
-      let pedido: string | null = null
       const ct = criarResp.headers.get("content-type")
+      let pedido: string | null = null
 
       if (ct?.includes("application/json")) {
         const json = await criarResp.json()
@@ -225,37 +225,45 @@ export function PaymentCheckout({
 
       setNumeroPedidoBndes(pedido)
       setBndesStep("finalizing")
-      
-console.log("🔥 PEDIDO QUE VOU USAR NO PUT:", pedido)
-console.log("🔥 URL:", `/api/bndes/pedido-finalizar/${pedido}`)
-      
-      const finalizar = await fetch(`/api/bndes/pedido-finalizar/${pedido}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          parcelas: parcelamentoAtual.parcelas,
-          valorPagamento: order.valorBase,
-          endereco: "Avenida Paulo Gracindo",
-          numero: "100",
-          bairro: "Gávea",
-          municipio: "Uberlândia",
-          uf: "MG",
-          cep: "38411145",
-          itens: [
-            {
-              produto: "7125",
-              quantidade: 1,
-              precoUnitario: order.valorBase,
-            },
-          ],
-        }),
-      })
-      
-      
+
+      // =============================
+      // FINALIZAR PEDIDO
+      // =============================
+      const finalizar = await fetch(
+        `/api/bndes/pedido-finalizar/${pedido}`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            parcelas: parcelamentoAtual.parcelas,
+            valorPagamento: order.valorBase,
+            endereco: "Avenida Paulo Gracindo",
+            numero: "100",
+            bairro: "Gávea",
+            municipio: "Uberlândia",
+            uf: "MG",
+            cep: "38411145",
+            itens: [
+              {
+                produto: "7125",
+                quantidade: 1,
+                precoUnitario: order.valorBase,
+              },
+            ],
+          }),
+        }
+      )
+
       if (!finalizar.ok) throw new Error("Erro ao finalizar pedido")
 
       setShowModal(false)
-      onProceed(parcelamentoAtual, cardData)
+
+      // 🔥 ENTREGA O CONTEXTO COMPLETO PARA O FLOW
+      onProceed({
+        parcelamento: parcelamentoAtual,
+        cardData,
+        numeroPedidoBndes: pedido,
+      })
     } catch (err: any) {
       setBndesStep("error")
       setBndesError(err.message || "Erro no fluxo BNDES")
