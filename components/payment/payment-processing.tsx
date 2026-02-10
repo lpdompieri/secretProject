@@ -66,20 +66,17 @@ export function PaymentProcessing({
         // ======================================================
         setCurrentStep("initiating")
 
-        const precapturaResp = await fetch(
-          "/api/bndes/pedido-precaptura",
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              pedido: numeroPedidoBndes,
-              numeroCartao: cardData.numero.replace(/\D/g, ""),
-              mesValidade: cardData.validade.slice(0, 2),
-              anoValidade: "20" + cardData.validade.slice(3),
-              codigoSeguranca: cardData.cvv,
-            }),
-          }
-        )
+        const precapturaResp = await fetch("/api/bndes/pedido-precaptura", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            pedido: numeroPedidoBndes,
+            numeroCartao: cardData.numero.replace(/\D/g, ""),
+            mesValidade: cardData.validade.slice(0, 2),
+            anoValidade: "20" + cardData.validade.slice(3),
+            codigoSeguranca: cardData.cvv,
+          }),
+        })
 
         if (!precapturaResp.ok) {
           throw new Error("Erro na pré-captura do pagamento")
@@ -92,16 +89,13 @@ export function PaymentProcessing({
         // ======================================================
         setCurrentStep("processing")
 
-        const capturaResp = await fetch(
-          "/api/bndes/pedido-captura",
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              pedido: numeroPedidoBndes,
-            }),
-          }
-        )
+        const capturaResp = await fetch("/api/bndes/pedido-captura", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            pedido: numeroPedidoBndes,
+          }),
+        })
 
         if (!capturaResp.ok) {
           throw new Error("Erro na captura do pagamento")
@@ -110,11 +104,16 @@ export function PaymentProcessing({
         const captura = await capturaResp.json()
 
         // ======================================================
-        // 3️⃣ GERAR COMPROVANTE
+        // 3️⃣ GERAR COMPROVANTE (DEFENSIVO)
         // ======================================================
         setCurrentStep("generating")
 
         const agora = new Date()
+
+        const valorJuros = parcelamento.valorJuros ?? 0
+        const valorParcela = parcelamento.valorParcela ?? 0
+        const valorTotal = parcelamento.valorTotal ?? 0
+        const valorOriginal = valorTotal - valorJuros
 
         const receipt: PaymentReceipt = {
           status: "approved",
@@ -122,11 +121,11 @@ export function PaymentProcessing({
           numeroPedido: numeroPedidoBndes,
           data: agora.toLocaleDateString("pt-BR"),
           hora: agora.toLocaleTimeString("pt-BR"),
-          valorOriginal: parcelamento.valorTotal - parcelamento.valorJuros,
-          juros: parcelamento.valorJuros,
-          valorTotal: parcelamento.valorTotal,
+          valorOriginal,
+          juros: valorJuros,
+          valorTotal,
           parcelas: parcelamento.parcelas,
-          valorParcela: parcelamento.valorParcela,
+          valorParcela,
           cliente: {
             nome: "Cliente BNDES",
             cnpj: captura.cnpjAdquirente,
