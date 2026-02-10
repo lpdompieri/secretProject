@@ -3,7 +3,6 @@ export const runtime = "nodejs"
 import { NextResponse } from "next/server"
 import { bndesFetch } from "../../_lib/bndes-fetch"
 
-console.log("ENTREI DENTRO DO ARQUIVO app/api/bndes/pedido/[pedido]/route.ts")
 const BNDES_BASE =
   "https://apigw-h.bndes.gov.br/cbn-fornecedor/v1"
 
