@@ -81,7 +81,7 @@ function hasValidationErrors(errors: CardValidationErrors): boolean {
 }
 
 // =============================================================================
-// COMPONENTE
+// COMPONENTES
 // =============================================================================
 
 interface PaymentCheckoutProps {
