@@ -202,7 +202,7 @@ export function PaymentCheckout({
         .replace(/\D/g, "")
         .slice(0, 6)
 
-      const criarResp = await fetch("/api/bndes/pedido/criar", {
+      const criarResp = await fetch("/api/bndes/pedido-criar", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -227,9 +227,9 @@ export function PaymentCheckout({
       setBndesStep("finalizing")
       
 console.log("🔥 PEDIDO QUE VOU USAR NO PUT:", pedido)
-console.log("🔥 URL:", `/api/bndes/pedido/finalizar/${pedido}`)
+console.log("🔥 URL:", `/api/bndes/pedido-finalizar/${pedido}`)
       
-      const finalizar = await fetch(`/api/bndes/pedido/finalizar/${pedido}`, {
+      const finalizar = await fetch(`/api/bndes/pedido-finalizar/${pedido}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
