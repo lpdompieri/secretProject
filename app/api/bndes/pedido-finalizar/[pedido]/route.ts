@@ -2,7 +2,7 @@ export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
 
 import { NextResponse } from "next/server"
-import { bndesFetch } from "../../../_lib/bndes-fetch"
+import { bndesFetch } from "../../_lib/bndes-fetch"
 
 const BNDES_BASE =
   "https://apigw-h.bndes.gov.br/cbn-fornecedor/v1"
