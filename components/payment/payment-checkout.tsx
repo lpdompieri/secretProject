@@ -227,7 +227,7 @@ export function PaymentCheckout({
       setBndesStep("finalizing")
       
 console.log("🔥 PEDIDO QUE VOU USAR NO PUT:", pedido)
-console.log("🔥 URL:", `/api/bndes/pedido/${pedido}`)
+console.log("🔥 URL:", `/api/bndes/pedido/finalizar/${pedido}`)
       
       const finalizar = await fetch(`/api/bndes/pedido/finalizar/${pedido}`, {
         method: "PUT",
