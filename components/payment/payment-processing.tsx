@@ -66,7 +66,7 @@ export function PaymentProcessing({
         // ======================================================
         setCurrentStep("initiating")
 
-        console.log("🟡 [BNDES] Iniciando PRÉ-CAPTURA")
+        console.log("🟡 [BNDES] Iniciando PRÉ-CAPTURA DO PAGAMENTO")
         console.log("📤 Payload pré-captura:", {
           pedido: numeroPedidoBndes,
           numeroCartao: cardData.numero.replace(/\D/g, ""),
