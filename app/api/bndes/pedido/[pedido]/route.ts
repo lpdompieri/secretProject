@@ -21,9 +21,8 @@ export async function PUT(
       return NextResponse.json(
         { error: "Número do pedido obrigatório" },
         { status: 400 }
-        console.log("Perdi o numero do pedido dentro de de app/api/bndes/pedido/[pedido]/route.ts")
-
       )
+     console.log("Perdi o numero do pedido dentro de de app/api/bndes/pedido/[pedido]/route.ts")
     }
 
     const body = await req.json()
