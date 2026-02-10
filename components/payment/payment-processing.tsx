@@ -66,17 +66,29 @@ export function PaymentProcessing({
         // ======================================================
         setCurrentStep("initiating")
 
-        const precapturaResp = await fetch("/api/bndes/pedido-precaptura", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            pedido: numeroPedidoBndes,
-            numeroCartao: cardData.numero.replace(/\D/g, ""),
-            mesValidade: cardData.validade.slice(0, 2),
-            anoValidade: "20" + cardData.validade.slice(3),
-            codigoSeguranca: cardData.cvv,
-          }),
+        console.log("🟡 [BNDES] Iniciando PRÉ-CAPTURA")
+        console.log("📤 Payload pré-captura:", {
+          pedido: numeroPedidoBndes,
+          numeroCartao: cardData.numero.replace(/\D/g, ""),
+          mesValidade: cardData.validade.slice(0, 2),
+          anoValidade: "20" + cardData.validade.slice(3),
+          codigoSeguranca: cardData.cvv,
         })
+
+        const precapturaResp = await fetch(
+          "/api/bndes/pedido-precaptura",
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              pedido: numeroPedidoBndes,
+              numeroCartao: cardData.numero.replace(/\D/g, ""),
+              mesValidade: cardData.validade.slice(0, 2),
+              anoValidade: "20" + cardData.validade.slice(3),
+              codigoSeguranca: cardData.cvv,
+            }),
+          }
+        )
 
         if (!precapturaResp.ok) {
           throw new Error("Erro na pré-captura do pagamento")
@@ -84,18 +96,29 @@ export function PaymentProcessing({
 
         const precaptura = await precapturaResp.json()
 
+        console.log("✅ [BNDES] PRÉ-CAPTURA REALIZADA COM SUCESSO")
+        console.log("📥 Resposta pré-captura BNDES:", precaptura)
+
         // ======================================================
         // 2️⃣ CAPTURA
         // ======================================================
         setCurrentStep("processing")
 
-        const capturaResp = await fetch("/api/bndes/pedido-captura", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            pedido: numeroPedidoBndes,
-          }),
+        console.log("🟡 [BNDES] Iniciando CAPTURA")
+        console.log("📤 Payload captura:", {
+          pedido: numeroPedidoBndes,
         })
+
+        const capturaResp = await fetch(
+          "/api/bndes/pedido-captura",
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              pedido: numeroPedidoBndes,
+            }),
+          }
+        )
 
         if (!capturaResp.ok) {
           throw new Error("Erro na captura do pagamento")
@@ -103,10 +126,15 @@ export function PaymentProcessing({
 
         const captura = await capturaResp.json()
 
+        console.log("✅ [BNDES] CAPTURA REALIZADA COM SUCESSO")
+        console.log("📥 Resposta captura BNDES:", captura)
+
         // ======================================================
-        // 3️⃣ GERAR COMPROVANTE (DEFENSIVO)
+        // 3️⃣ GERAR COMPROVANTE
         // ======================================================
         setCurrentStep("generating")
+
+        console.log("🟢 [SISTEMA] Gerando comprovante de pagamento")
 
         const agora = new Date()
 
@@ -136,8 +164,12 @@ export function PaymentProcessing({
           pedidoSistema: orderNumeroSistema,
         }
 
+        console.log("📄 [SISTEMA] COMPROVANTE FINAL GERADO")
+        console.log("🧾 PaymentReceipt:", receipt)
+
         onSuccess(receipt)
       } catch (err: any) {
+        console.error("❌ [ERRO PAGAMENTO]", err)
         onError(err.message || "Erro ao processar pagamento")
       }
     }
