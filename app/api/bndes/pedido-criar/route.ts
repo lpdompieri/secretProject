@@ -1,7 +1,7 @@
 export const runtime = "nodejs"
 
 import { NextResponse } from "next/server"
-import { bndesFetch } from "../../_lib/bndes-fetch"
+import { bndesFetch } from "../_lib/bndes-fetch"
 
 export async function POST(req: Request) {
   try {
