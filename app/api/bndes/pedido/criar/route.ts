@@ -1,7 +1,7 @@
 export const runtime = "nodejs"
 
 import { NextResponse } from "next/server"
-import { bndesFetch } from "../_lib/bndes-fetch"
+import { bndesFetch } from "../../_lib/bndes-fetch"
 
 export async function POST(req: Request) {
   try {
@@ -18,7 +18,6 @@ export async function POST(req: Request) {
 
     console.log("[BNDES][PEDIDO] Chamando:", url)
 
-    // ✅ MESMA FUNÇÃO DA SIMULAÇÃO
     const response = await bndesFetch(url, {
       method: "POST",
       headers: {
@@ -43,7 +42,6 @@ export async function POST(req: Request) {
       )
     }
 
-    // 🔥 BNDES retorna SÓ O NÚMERO (texto puro)
     return new NextResponse(text.trim(), {
       status: 201,
       headers: {
