@@ -14,9 +14,6 @@ export async function PUT(req: Request) {
     const parts = url.pathname.split("/")
     const pedido = parts[parts.length - 1]
 
-    console.log("🔥 URL:", url.pathname)
-    console.log("🔥 PEDIDO EXTRAÍDO DA URL:", pedido)
-
     if (!pedido) {
       return NextResponse.json(
         { error: "Número do pedido obrigatório" },
