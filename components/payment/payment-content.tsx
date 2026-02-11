@@ -4,21 +4,13 @@
  * =============================================================================
  * COMPONENTE: CONTEUDO PRINCIPAL DO MODULO DE PAGAMENTO
  * =============================================================================
- * 
- * Responsabilidade: Orquestrar o fluxo completo de pagamento, gerenciando
- * a transicao entre as diferentes etapas:
- * 
- * 1. Consulta de pedido (OrderSearch)
- * 2. Checkout com parcelamento (PaymentCheckout)
- * 3. Modal de autorizacao do gerente (ManagerAuthModal)
- * 4. Processamento do pagamento (PaymentProcessing)
- * 5. Tela de sucesso com comprovante (PaymentSuccess)
- * 
- * Estados:
- * - "search": Tela inicial de consulta
- * - "checkout": Selecao de parcelamento
- * - "processing": Processando pagamento
- * - "success": Pagamento concluido
+ *
+ * Fluxo:
+ * 1. Consulta pedido
+ * 2. Checkout
+ * 3. Autorizacao gerente
+ * 4. Modal processamento (pré-captura + captura)
+ * 5. Tela sucesso
  * =============================================================================
  */
 
@@ -26,103 +18,291 @@ import { useState } from "react"
 import { OrderSearch } from "./order-search"
 import { PaymentCheckout } from "./payment-checkout"
 import { ManagerAuthModal } from "./manager-auth-modal"
-import { PaymentProcessing } from "./payment-processing"
 import { PaymentSuccess } from "./payment-success"
-import { processarPagamento } from "@/services/payment-service"
-import type { Order, InstallmentOption, PaymentReceipt, PaymentProcessingStep, CardData } from "@/types/payment"
+import {
+  BndesPaymentModal,
+  BndesPaymentStep,
+} from "./bndes-payment-modal"
 
-type PaymentStep = "search" | "checkout" | "processing" | "success"
+import type {
+  Order,
+  InstallmentOption,
+  PaymentReceipt,
+  CardData,
+} from "@/types/payment"
+
+type PaymentStep = "search" | "checkout" | "success"
 
 export function PaymentContent() {
-  // Estado do fluxo
-  const [currentStep, setCurrentStep] = useState<PaymentStep>("search")
-  
-  // Dados do pagamento
-  const [order, setOrder] = useState<Order | null>(null)
-  const [parcelamento, setParcelamento] = useState<InstallmentOption | null>(null)
-  const [cardData, setCardData] = useState<CardData | null>(null)
-  const [receipt, setReceipt] = useState<PaymentReceipt | null>(null)
-  
-  // Modal de autorizacao
-  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false)
-  
-  // Etapa do processamento
-  const [processingStep, setProcessingStep] = useState<PaymentProcessingStep>("initiating")
+  // ============================================================================
+  // ESTADO PRINCIPAL
+  // ============================================================================
 
-  /**
-   * Quando um pedido valido e encontrado, avanca para checkout
-   */
+  const [currentStep, setCurrentStep] =
+    useState<PaymentStep>("search")
+
+  const [order, setOrder] =
+    useState<Order | null>(null)
+
+  const [parcelamento, setParcelamento] =
+    useState<InstallmentOption | null>(null)
+
+  const [cardData, setCardData] =
+    useState<CardData | null>(null)
+
+  const [numeroPedidoBndes, setNumeroPedidoBndes] =
+    useState<string | null>(null)
+
+  const [receipt, setReceipt] =
+    useState<PaymentReceipt | null>(null)
+
+  // ============================================================================
+  // MODAIS
+  // ============================================================================
+
+  const [isAuthModalOpen, setIsAuthModalOpen] =
+    useState(false)
+
+  const [isPaymentModalOpen, setIsPaymentModalOpen] =
+    useState(false)
+
+  const [paymentStep, setPaymentStep] =
+    useState<BndesPaymentStep>("precapturing")
+
+  const [isProcessing, setIsProcessing] =
+    useState(false)
+
+  // ============================================================================
+  // 1️⃣ Pedido encontrado
+  // ============================================================================
+
   function handleOrderFound(foundOrder: Order) {
     setOrder(foundOrder)
     setCurrentStep("checkout")
   }
 
-  /**
-   * Voltar para consulta de pedido
-   */
+  // ============================================================================
+  // 2️⃣ Voltar para busca
+  // ============================================================================
+
   function handleBackToSearch() {
     setOrder(null)
     setParcelamento(null)
     setCardData(null)
+    setNumeroPedidoBndes(null)
     setCurrentStep("search")
   }
 
-  /**
-   * Quando usuario seleciona parcelamento e clica em pagar
-   * Agora tambem recebe os dados do cartao
-   */
-  function handleProceedToPayment(selectedParcelamento: InstallmentOption, card: CardData) {
-    setParcelamento(selectedParcelamento)
-    setCardData(card)
+  // ============================================================================
+  // 3️⃣ Checkout finalizado (pedido criado e finalizado no BNDES)
+  // ============================================================================
+
+  function handleProceedToPayment(payload: {
+    parcelamento: InstallmentOption
+    cardData: CardData
+    numeroPedidoBndes: string
+  }) {
+    setParcelamento(payload.parcelamento)
+    setCardData(payload.cardData)
+    setNumeroPedidoBndes(payload.numeroPedidoBndes)
     setIsAuthModalOpen(true)
   }
 
-  /**
-   * Quando autorizacao do gerente e validada
-   */
-  async function handleAuthorized(codigo: string) {
+  // ============================================================================
+  // 4️⃣ Gerente autorizou → Fluxo REAL BNDES
+  // ============================================================================
+
+  async function handleAuthorized() {
+    if (isProcessing) return
+    setIsProcessing(true)
+
     setIsAuthModalOpen(false)
-    setCurrentStep("processing")
-    setProcessingStep("initiating")
+    setIsPaymentModalOpen(true)
 
-    if (!order || !parcelamento) return
+    if (
+      !order ||
+      !parcelamento ||
+      !cardData ||
+      !numeroPedidoBndes
+    ) {
+      console.error("❌ Estado incompleto para processar pagamento")
+      setIsPaymentModalOpen(false)
+      setIsProcessing(false)
+      return
+    }
 
-    // Processar pagamento
-    const result = await processarPagamento(
-      order.numeroPedido,
-      parcelamento,
-      codigo,
-      setProcessingStep
-    )
+    try {
+      // ==========================================================
+      // PRÉ-CAPTURA
+      // ==========================================================
 
-    if (result.success && result.receipt) {
-      setReceipt(result.receipt)
-      setCurrentStep("success")
-    } else {
-      // Em caso de erro, voltar para checkout
-      // TODO: Exibir mensagem de erro
-      setCurrentStep("checkout")
+      setPaymentStep("precapturing")
+
+      console.log(
+        "🟡 [FRONT] Iniciando PRÉ-CAPTURA:",
+        numeroPedidoBndes
+      )
+
+      const precapturaResp = await fetch(
+        "/api/bndes/pedido-precaptura",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            pedido: numeroPedidoBndes,
+            numeroCartao: cardData.numero.replace(/\D/g, ""),
+            mesValidade: cardData.validade.slice(0, 2),
+            anoValidade: "20" + cardData.validade.slice(3),
+            codigoSeguranca: cardData.cvv,
+          }),
+        }
+      )
+
+      const precapturaData =
+        await precapturaResp.json()
+
+      console.log(
+        "🟢 [FRONT] RESPOSTA PRÉ-CAPTURA:",
+        precapturaData
+      )
+
+      if (!precapturaResp.ok) {
+        throw new Error(
+          precapturaData?.error ||
+            "Erro na pré-captura"
+        )
+      }
+
+      // ==========================================================
+      // CAPTURA
+      // ==========================================================
+
+      setPaymentStep("capturing")
+
+      console.log(
+        "🟡 [FRONT] Iniciando CAPTURA:",
+        numeroPedidoBndes
+      )
+
+      const capturaResp = await fetch(
+        "/api/bndes/pedido-captura",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            pedido: numeroPedidoBndes,
+          }),
+        }
+      )
+
+      const capturaData =
+        await capturaResp.json()
+
+      console.log(
+        "🟢 [FRONT] RESPOSTA CAPTURA:",
+        capturaData
+      )
+
+      if (!capturaResp.ok) {
+        throw new Error(
+          capturaData?.error ||
+            "Erro na captura"
+        )
+      }
+
+      // ==========================================================
+      // SUCESSO
+      // ==========================================================
+
+      setPaymentStep("success")
+
+      const dataCaptura =
+        capturaData?.dataHoraCaptura
+          ? new Date(capturaData.dataHoraCaptura)
+          : new Date()
+
+      const situacaoFinal =
+        capturaData?.situacao === 40
+          ? "approved"
+          : "processing"
+
+      const realReceipt: PaymentReceipt = {
+        numeroTransacao: precapturaData?.tid,
+        numeroPedido: order.numeroPedido,
+        numeroPedidoBndes: numeroPedidoBndes,
+        data: dataCaptura.toLocaleDateString("pt-BR"),
+        hora: dataCaptura.toLocaleTimeString("pt-BR"),
+        valorOriginal:
+          parcelamento.valorTotal -
+          parcelamento.valorJuros,
+        juros: parcelamento.valorJuros,
+        valorTotal: parcelamento.valorTotal,
+        parcelas: parcelamento.parcelas,
+        valorParcela: parcelamento.valorParcela,
+        status: situacaoFinal,
+        cliente: {
+          nome: order.cliente.nome,
+          cnpj: order.cliente.cnpj,
+        },
+        autorizacao: {
+          codigo: precapturaData?.numeroAutorizacao,
+        },
+        tid: precapturaData?.tid,
+        dataHoraCaptura:
+          capturaData?.dataHoraCaptura,
+      }
+
+      setReceipt(realReceipt)
+
+      setTimeout(() => {
+        setIsPaymentModalOpen(false)
+        setCurrentStep("success")
+      }, 1200)
+
+    } catch (error: any) {
+      console.error(
+        "❌ [FRONT] ERRO NO PAGAMENTO:",
+        error
+      )
+
+      setPaymentStep("error")
+
+      setTimeout(() => {
+        setIsPaymentModalOpen(false)
+      }, 2000)
+    } finally {
+      setIsProcessing(false)
     }
   }
 
-  /**
-   * Iniciar novo pagamento
-   */
+  // ============================================================================
+  // Novo pagamento
+  // ============================================================================
+
   function handleNewPayment() {
     setOrder(null)
     setParcelamento(null)
     setCardData(null)
+    setNumeroPedidoBndes(null)
     setReceipt(null)
     setCurrentStep("search")
   }
 
-  // Renderizar etapa atual
+  // ============================================================================
+  // RENDER
+  // ============================================================================
+
   switch (currentStep) {
     case "search":
-      return <OrderSearch onOrderFound={handleOrderFound} />
+      return (
+        <OrderSearch
+          onOrderFound={handleOrderFound}
+        />
+      )
 
     case "checkout":
       if (!order) return null
+
       return (
         <>
           <PaymentCheckout
@@ -130,19 +310,25 @@ export function PaymentContent() {
             onBack={handleBackToSearch}
             onProceed={handleProceedToPayment}
           />
+
           <ManagerAuthModal
             isOpen={isAuthModalOpen}
-            onClose={() => setIsAuthModalOpen(false)}
+            onClose={() =>
+              setIsAuthModalOpen(false)
+            }
             onAuthorized={handleAuthorized}
+          />
+
+          <BndesPaymentModal
+            open={isPaymentModalOpen}
+            step={paymentStep}
           />
         </>
       )
 
-    case "processing":
-      return <PaymentProcessing currentStep={processingStep} />
-
     case "success":
       if (!receipt) return null
+
       return (
         <PaymentSuccess
           receipt={receipt}
@@ -151,6 +337,10 @@ export function PaymentContent() {
       )
 
     default:
-      return <OrderSearch onOrderFound={handleOrderFound} />
+      return (
+        <OrderSearch
+          onOrderFound={handleOrderFound}
+        />
+      )
   }
 }
