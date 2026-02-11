@@ -1,19 +1,5 @@
 "use client"
 
-/**
- * =============================================================================
- * COMPONENTE: CONTEUDO PRINCIPAL DO MODULO DE PAGAMENTO
- * =============================================================================
- *
- * Fluxo:
- * 1. Consulta pedido
- * 2. Checkout
- * 3. Autorizacao gerente
- * 4. Modal processamento (pré-captura + captura)
- * 5. Tela sucesso
- * =============================================================================
- */
-
 import { useState } from "react"
 import { OrderSearch } from "./order-search"
 import { PaymentCheckout } from "./payment-checkout"
@@ -34,11 +20,6 @@ import type {
 type PaymentStep = "search" | "checkout" | "success"
 
 export function PaymentContent() {
-  /**
-   * ===========================================================================
-   * ESTADO PRINCIPAL
-   * ===========================================================================
-   */
   const [currentStep, setCurrentStep] =
     useState<PaymentStep>("search")
 
@@ -54,46 +35,23 @@ export function PaymentContent() {
   const [receipt, setReceipt] =
     useState<PaymentReceipt | null>(null)
 
-  /**
-   * ===========================================================================
-   * CONTROLE DE MODAIS
-   * ===========================================================================
-   */
   const [isAuthModalOpen, setIsAuthModalOpen] =
     useState(false)
 
   const [isPaymentModalOpen, setIsPaymentModalOpen] =
     useState(false)
 
-  /**
-   * ===========================================================================
-   * ETAPA DO PROCESSAMENTO
-   * ===========================================================================
-   */
   const [paymentStep, setPaymentStep] =
     useState<BndesPaymentStep>("precapturing")
 
-  /**
-   * Proteção contra double click / múltiplas execuções
-   */
   const [isProcessing, setIsProcessing] =
     useState(false)
 
-  /**
-   * ===========================================================================
-   * 1️⃣ Pedido encontrado
-   * ===========================================================================
-   */
   function handleOrderFound(foundOrder: Order) {
     setOrder(foundOrder)
     setCurrentStep("checkout")
   }
 
-  /**
-   * ===========================================================================
-   * 2️⃣ Voltar para busca
-   * ===========================================================================
-   */
   function handleBackToSearch() {
     setOrder(null)
     setParcelamento(null)
@@ -101,11 +59,6 @@ export function PaymentContent() {
     setCurrentStep("search")
   }
 
-  /**
-   * ===========================================================================
-   * 3️⃣ Usuario clicou em pagar
-   * ===========================================================================
-   */
   function handleProceedToPayment(
     selectedParcelamento: InstallmentOption,
     card: CardData
@@ -115,11 +68,6 @@ export function PaymentContent() {
     setIsAuthModalOpen(true)
   }
 
-  /**
-   * ===========================================================================
-   * 4️⃣ Gerente autorizou → Fluxo real BNDES
-   * ===========================================================================
-   */
   async function handleAuthorized() {
     if (isProcessing) return
     setIsProcessing(true)
@@ -128,7 +76,6 @@ export function PaymentContent() {
     setIsPaymentModalOpen(true)
 
     if (!order || !parcelamento || !cardData) {
-      setIsPaymentModalOpen(false)
       setIsProcessing(false)
       return
     }
@@ -140,9 +87,6 @@ export function PaymentContent() {
        * ==========================================================
        */
       setPaymentStep("precapturing")
-
-      console.log("🟡 [FRONT] Iniciando PRÉ-CAPTURA",
-        order.numeroPedido)
 
       const precapturaResp = await fetch(
         "/api/bndes/pedido-precaptura",
@@ -163,11 +107,6 @@ export function PaymentContent() {
       const precapturaData =
         await precapturaResp.json()
 
-      console.log(
-        "🟢 [FRONT] RESPOSTA PRÉ-CAPTURA:",
-        precapturaData
-      )
-
       if (!precapturaResp.ok) {
         throw new Error(
           precapturaData?.error ||
@@ -181,11 +120,6 @@ export function PaymentContent() {
        * ==========================================================
        */
       setPaymentStep("capturing")
-
-      console.log(
-        "🟡 [FRONT] Iniciando CAPTURA",
-        order.numeroPedido
-      )
 
       const capturaResp = await fetch(
         "/api/bndes/pedido-captura",
@@ -201,11 +135,6 @@ export function PaymentContent() {
       const capturaData =
         await capturaResp.json()
 
-      console.log(
-        "🟢 [FRONT] RESPOSTA CAPTURA:",
-        capturaData
-      )
-
       if (!capturaResp.ok) {
         throw new Error(
           capturaData?.error ||
@@ -215,24 +144,46 @@ export function PaymentContent() {
 
       /**
        * ==========================================================
-       * SUCESSO
+       * VALIDAÇÃO FINAL
        * ==========================================================
        */
-      setPaymentStep("success")
+      if (capturaData?.situacao !== 40) {
+        throw new Error(
+          "Pagamento não foi capturado com sucesso"
+        )
+      }
 
+      /**
+       * ==========================================================
+       * MONTAGEM DO RECEIPT REAL
+       * ==========================================================
+       */
       const realReceipt: PaymentReceipt = {
-        numeroPedido: order.numeroPedido,
-        valor: parcelamento.valorTotal,
-        parcelas:
-          parcelamento.quantidadeParcelas,
-        data: new Date().toISOString(),
-        autorizacao:
-          capturaData?.numeroAutorizacao ||
-          capturaData?.autorizacao ||
-          "Autorizado",
+        numeroPedidoInterno: order.numeroPedido,
+        numeroPedidoBndes: order.numeroPedido,
+
+        valorOriginal:
+          parcelamento.valorTotal -
+          parcelamento.valorJuros,
+
+        juros: parcelamento.valorJuros,
+        valorTotal: parcelamento.valorTotal,
+        parcelas: parcelamento.parcelas,
+        valorParcela: parcelamento.valorParcela,
+
+        numeroAutorizacao:
+          precapturaData.numeroAutorizacao,
+
+        tid: precapturaData.tid,
+
+        situacao: capturaData.situacao,
+        descricao: capturaData.descricao,
+        dataHoraCaptura:
+          capturaData.dataHoraCaptura,
       }
 
       setReceipt(realReceipt)
+      setPaymentStep("success")
 
       setTimeout(() => {
         setIsPaymentModalOpen(false)
@@ -241,7 +192,7 @@ export function PaymentContent() {
 
     } catch (error: any) {
       console.error(
-        "❌ [FRONT] ERRO NO PAGAMENTO:",
+        "❌ ERRO NO PAGAMENTO:",
         error
       )
 
@@ -255,11 +206,6 @@ export function PaymentContent() {
     }
   }
 
-  /**
-   * ===========================================================================
-   * 5️⃣ Novo pagamento
-   * ===========================================================================
-   */
   function handleNewPayment() {
     setOrder(null)
     setParcelamento(null)
@@ -268,11 +214,6 @@ export function PaymentContent() {
     setCurrentStep("search")
   }
 
-  /**
-   * ===========================================================================
-   * RENDER
-   * ===========================================================================
-   */
   switch (currentStep) {
     case "search":
       return (
