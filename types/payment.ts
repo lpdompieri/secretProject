@@ -2,48 +2,43 @@
  * =============================================================================
  * TIPOS DO MODULO DE PAGAMENTO
  * =============================================================================
- * 
- * Este arquivo define todas as interfaces e tipos relacionados ao modulo de
- * pagamento. Responsabilidade: Tipagem forte para garantir consistencia de dados.
- * 
- * Estrutura:
- * - Interfaces de dados (Order, Payment, Receipt)
- * - Tipos de status e erros
- * - Interfaces de request/response para API
+ *
+ * Responsabilidade:
+ * - Garantir tipagem forte
+ * - Padronizar fluxo BNDES real (criar → finalizar → pré-captura → captura)
+ * - Evitar duplicidade de interfaces
  * =============================================================================
  */
 
-/**
- * Status possiveis de um pedido para pagamento
- */
-export type OrderPaymentStatus = 
-  | "available"           // Disponivel para pagamento
-  | "invalid_products"    // Contem produtos nao habilitados BNDES
-  | "invalid_customer"    // Cliente nao habilitado BNDES
-  | "not_found"           // Pedido nao encontrado
-  | "already_paid"        // Ja foi pago
+// =============================================================================
+// STATUS
+// =============================================================================
 
-/**
- * Status do pagamento
- */
-export type PaymentStatus = 
-  | "pending"    // Aguardando processamento
-  | "processing" // Em processamento
-  | "approved"   // Aprovado
-  | "rejected"   // Rejeitado
-  | "cancelled"  // Cancelado
+export type OrderPaymentStatus =
+  | "available"
+  | "invalid_products"
+  | "invalid_customer"
+  | "not_found"
+  | "already_paid"
 
-/**
- * Etapas do processamento de pagamento
- */
-export type PaymentProcessingStep = 
-  | "initiating"    // Iniciando transacao
-  | "processing"    // Efetuando pagamento
-  | "generating"    // Gerando comprovante
+export type PaymentStatus =
+  | "pending"
+  | "processing"
+  | "approved"
+  | "rejected"
+  | "cancelled"
 
-/**
- * Interface para item do pedido
- */
+// Etapas do modal de processamento BNDES
+export type BndesPaymentStep =
+  | "precapturing"
+  | "capturing"
+  | "success"
+  | "error"
+
+// =============================================================================
+// PEDIDO
+// =============================================================================
+
 export interface OrderItem {
   codigo: string
   descricao: string
@@ -52,9 +47,6 @@ export interface OrderItem {
   valorTotal: number
 }
 
-/**
- * Interface para dados do pedido consultado
- */
 export interface Order {
   numeroPedido: string
   cliente: {
@@ -67,9 +59,6 @@ export interface Order {
   status: OrderPaymentStatus
 }
 
-/**
- * Interface para resultado da consulta de pedido
- */
 export interface OrderConsultResult {
   success: boolean
   order?: Order
@@ -79,91 +68,33 @@ export interface OrderConsultResult {
   }
 }
 
-/**
- * Interface para opcao de parcelamento
- */
+// =============================================================================
+// PARCELAMENTO
+// =============================================================================
+
 export interface InstallmentOption {
   parcelas: number
-  taxaJuros: number      // Percentual de juros (ex: 5 = 5%)
-  valorJuros: number     // Valor absoluto dos juros
-  valorTotal: number     // Valor base + juros
-  valorParcela: number   // Valor de cada parcela
-}
-
-/**
- * Interface para dados do checkout
- */
-export interface CheckoutData {
-  pedido: Order
-  parcelamentoSelecionado: InstallmentOption | null
-}
-
-/**
- * Interface para comprovante de pagamento
- */
-export interface PaymentReceipt {
-  numeroTransacao: string
-  numeroPedido: string
-  data: string
-  hora: string
-  valorOriginal: number
-  juros: number
+  taxaJuros: number
+  valorJuros: number
   valorTotal: number
-  parcelas: number
   valorParcela: number
-  status: PaymentStatus
-  cliente: {
-    nome: string
-    cnpj: string
-  }
-  autorizacao: {
-    codigo: string
-    gerente?: string
-  }
-}
-
-/**
- * Interface para validacao de autorizacao do gerente
- */
-export interface ManagerAuthorizationResult {
-  valid: boolean
-  managerName?: string
-  error?: string
-}
-
-/**
- * Interface para resultado do processamento de pagamento
- */
-export interface PaymentProcessResult {
-  success: boolean
-  receipt?: PaymentReceipt
-  error?: string
 }
 
 // =============================================================================
-// INTERFACES PARA DADOS DO CARTAO BNDES
+// CARTAO BNDES
 // =============================================================================
 
 /**
- * Dados do Cartao BNDES para pagamento
- * IMPORTANTE: Dados sensiveis - nunca persistir, apenas estado local
+ * Dados sensiveis — nunca persistir.
  */
 export interface CardData {
-  /** Numero do cartao (16 digitos) */
   numero: string
-  /** Nome do titular como impresso no cartao */
   nomeTitular: string
-  /** Validade no formato MM/AA */
-  validade: string
-  /** Codigo de seguranca (3 digitos) */
+  validade: string // MM/AA
   cvv: string
-  /** CPF do titular (11 digitos) */
   cpfTitular: string
 }
 
-/**
- * Erros de validacao do cartao
- */
 export interface CardValidationErrors {
   numero?: string
   nomeTitular?: string
@@ -172,74 +103,71 @@ export interface CardValidationErrors {
   cpfTitular?: string
 }
 
-/**
- * Resultado da tokenizacao do cartao
- * INTEGRACAO: Este token sera enviado ao gateway de pagamento
- */
-export interface CardTokenResult {
-  success: boolean
-  token?: string
-  error?: string
-}
+// =============================================================================
+// RECIBO FINAL (FLUXO REAL BNDES)
+// =============================================================================
 
 /**
- * Payload para processamento de pagamento com cartao
- */
-export interface PaymentPayload {
-  /** Token do cartao (gerado pela tokenizacao) */
-  cardToken: string
-  /** Numero do pedido */
-  numeroPedido: string
-  /** Quantidade de parcelas */
-  parcelas: number
-  /** Valor total com juros */
-  valorTotal: number
-  /** Codigo de autorizacao do gerente */
-  codigoAutorizacao: string
-}
-
-/**
- * Interface para comprovante de pagamento (BNDES REAL)
+ * Este é o comprovante final após:
+ * - Pré-captura
+ * - Captura
  */
 export interface PaymentReceipt {
-  /** Numero do pedido consultado no sistema */
-  numeroPedidoInterno: string
+  // Pedido interno
+  numeroPedido: string
 
-  /** Numero do pedido gerado no BNDES */
+  // Pedido gerado no BNDES
   numeroPedidoBndes: string
 
-  /** Valores */
+  // Transação
+  numeroTransacao?: string
+  tid: string
+
+  // Datas
+  data: string
+  hora: string
+  dataHoraCaptura?: string
+
+  // Valores
   valorOriginal: number
   juros: number
   valorTotal: number
   parcelas: number
   valorParcela: number
 
-  /** Dados retornados pela PRÉ-CAPTURA */
-  numeroAutorizacao: string
-  tid: string
+  // Status final baseado na situacao BNDES
+  status: PaymentStatus
 
-  /** Dados retornados pela CAPTURA */
-  situacao: number
-  descricao: string
-  dataHoraCaptura: string
+  // Cliente
+  cliente: {
+    nome: string
+    cnpj: string
+  }
+
+  // Autorização retornada na pré-captura
+  autorizacao: {
+    codigo: string
+  }
 }
 
+// =============================================================================
+// RESULTADO PROCESSAMENTO
+// =============================================================================
+
+export interface PaymentProcessResult {
+  success: boolean
+  receipt?: PaymentReceipt
+  error?: string
+}
 
 // =============================================================================
-// INTERFACES PARA API (REQUEST/RESPONSE)
+// REQUEST / RESPONSE API
 // =============================================================================
 
-/**
- * Request para consulta de pedido
- */
 export interface OrderConsultRequest {
   numeroPedido: string
 }
 
-/**
- * Response da consulta de pedido
- */
 export interface OrderConsultResponse {
   success: boolean
   data?: Order
@@ -249,9 +177,6 @@ export interface OrderConsultResponse {
   }
 }
 
-/**
- * Request para processamento de pagamento
- */
 export interface PaymentProcessRequest {
   numeroPedido: string
   parcelas: number
@@ -259,9 +184,6 @@ export interface PaymentProcessRequest {
   codigoAutorizacao: string
 }
 
-/**
- * Response do processamento de pagamento
- */
 export interface PaymentProcessResponse {
   success: boolean
   data?: PaymentReceipt
