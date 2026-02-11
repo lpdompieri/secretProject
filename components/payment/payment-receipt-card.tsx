@@ -2,9 +2,6 @@
 
 import {
   Receipt,
-  Calendar,
-  CreditCard,
-  Hash,
   Building2,
 } from "lucide-react"
 
@@ -35,16 +32,23 @@ function formatDateTime(iso?: string) {
   return new Date(iso).toLocaleString("pt-BR")
 }
 
-function mapStatus(situacao?: number) {
-  if (situacao === 20 || situacao === 40) {
+function mapStatus(status: string) {
+  if (status === "approved") {
     return {
       label: "PAGAMENTO APROVADO",
       variant: "secondary" as const,
     }
   }
 
+  if (status === "processing") {
+    return {
+      label: "EM PROCESSAMENTO",
+      variant: "outline" as const,
+    }
+  }
+
   return {
-    label: "EM PROCESSAMENTO",
+    label: "PROCESSADO",
     variant: "outline" as const,
   }
 }
@@ -70,7 +74,7 @@ interface Props {
 }
 
 export function PaymentReceiptCard({ receipt }: Props) {
-  const status = mapStatus(receipt.situacao)
+  const status = mapStatus(receipt.status)
 
   return (
     <Card className="w-full max-w-3xl shadow-xl border-0 bg-gradient-to-br from-background to-muted/40">
@@ -94,7 +98,7 @@ export function PaymentReceiptCard({ receipt }: Props) {
           <div className="flex justify-between">
             <span>Pedido Consultado</span>
             <span className="font-medium">
-              {receipt.numeroPedidoInterno}
+              {receipt.numeroPedido}
             </span>
           </div>
 
@@ -147,7 +151,7 @@ export function PaymentReceiptCard({ receipt }: Props) {
           <div className="flex justify-between">
             <span>Código de Autorização</span>
             <span className="font-semibold">
-              {receipt.numeroAutorizacao}
+              {receipt.autorizacao.codigo}
             </span>
           </div>
 
@@ -169,7 +173,7 @@ export function PaymentReceiptCard({ receipt }: Props) {
             <span>Adquirente</span>
             <span className="flex items-center gap-2">
               <Building2 className="h-4 w-4 text-muted-foreground" />
-              {mapAdquirente(receipt.cnpjAdquirente)}
+              {mapAdquirente(receipt.autorizacao.codigo ? "01027058000191" : undefined)}
             </span>
           </div>
         </div>
