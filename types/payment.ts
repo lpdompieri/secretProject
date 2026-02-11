@@ -198,6 +198,34 @@ export interface PaymentPayload {
   codigoAutorizacao: string
 }
 
+/**
+ * Interface para comprovante de pagamento (BNDES REAL)
+ */
+export interface PaymentReceipt {
+  /** Numero do pedido consultado no sistema */
+  numeroPedidoInterno: string
+
+  /** Numero do pedido gerado no BNDES */
+  numeroPedidoBndes: string
+
+  /** Valores */
+  valorOriginal: number
+  juros: number
+  valorTotal: number
+  parcelas: number
+  valorParcela: number
+
+  /** Dados retornados pela PRÉ-CAPTURA */
+  numeroAutorizacao: string
+  tid: string
+
+  /** Dados retornados pela CAPTURA */
+  situacao: number
+  descricao: string
+  dataHoraCaptura: string
+}
+
+
 // =============================================================================
 // INTERFACES PARA API (REQUEST/RESPONSE)
 // =============================================================================
