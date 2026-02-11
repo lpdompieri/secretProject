@@ -15,6 +15,8 @@ export function PaymentSuccess({
   onNewPayment,
 }: PaymentSuccessProps) {
 
+  console.log("RECEIPT FINAL:", receipt)
+  
   const aprovado =
     receipt.situacao === 20 ||
     receipt.situacao === 40
