@@ -4,20 +4,23 @@
  * =============================================================================
  * COMPONENTE: CONTEUDO PRINCIPAL DO MODULO DE PAGAMENTO
  * =============================================================================
- * 
+ *
  * Responsabilidade: Orquestrar o fluxo completo de pagamento, gerenciando
  * a transicao entre as diferentes etapas:
- * 
+ *
  * 1. Consulta de pedido (OrderSearch)
  * 2. Checkout com parcelamento (PaymentCheckout)
  * 3. Modal de autorizacao do gerente (ManagerAuthModal)
- * 4. Processamento do pagamento (PaymentProcessing)
+ * 4. Modal de processamento do pagamento (BndesPaymentModal)
  * 5. Tela de sucesso com comprovante (PaymentSuccess)
- * 
+ *
+ * IMPORTANTE:
+ * - Nao trocamos mais para uma tela de "processing".
+ * - O processamento agora ocorre dentro de um modal.
+ *
  * Estados:
  * - "search": Tela inicial de consulta
  * - "checkout": Selecao de parcelamento
- * - "processing": Processando pagamento
  * - "success": Pagamento concluido
  * =============================================================================
  */
@@ -26,31 +29,63 @@ import { useState } from "react"
 import { OrderSearch } from "./order-search"
 import { PaymentCheckout } from "./payment-checkout"
 import { ManagerAuthModal } from "./manager-auth-modal"
-import { PaymentProcessing } from "./payment-processing"
 import { PaymentSuccess } from "./payment-success"
-import { processarPagamento } from "@/services/payment-service"
-import type { Order, InstallmentOption, PaymentReceipt, PaymentProcessingStep, CardData } from "@/types/payment"
+import { BndesPaymentModal, BndesPaymentStep } from "./bndes-payment-modal"
 
-type PaymentStep = "search" | "checkout" | "processing" | "success"
+import type {
+  Order,
+  InstallmentOption,
+  PaymentReceipt,
+  CardData,
+} from "@/types/payment"
+
+type PaymentStep = "search" | "checkout" | "success"
 
 export function PaymentContent() {
-  // Estado do fluxo
-  const [currentStep, setCurrentStep] = useState<PaymentStep>("search")
-  
-  // Dados do pagamento
-  const [order, setOrder] = useState<Order | null>(null)
-  const [parcelamento, setParcelamento] = useState<InstallmentOption | null>(null)
-  const [cardData, setCardData] = useState<CardData | null>(null)
-  const [receipt, setReceipt] = useState<PaymentReceipt | null>(null)
-  
-  // Modal de autorizacao
-  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false)
-  
-  // Etapa do processamento
-  const [processingStep, setProcessingStep] = useState<PaymentProcessingStep>("initiating")
+  /**
+   * ===========================================================================
+   * ESTADO PRINCIPAL DO FLUXO
+   * ===========================================================================
+   */
+  const [currentStep, setCurrentStep] =
+    useState<PaymentStep>("search")
 
   /**
-   * Quando um pedido valido e encontrado, avanca para checkout
+   * ===========================================================================
+   * DADOS DO PAGAMENTO
+   * ===========================================================================
+   */
+  const [order, setOrder] = useState<Order | null>(null)
+  const [parcelamento, setParcelamento] =
+    useState<InstallmentOption | null>(null)
+  const [cardData, setCardData] =
+    useState<CardData | null>(null)
+  const [receipt, setReceipt] =
+    useState<PaymentReceipt | null>(null)
+
+  /**
+   * ===========================================================================
+   * CONTROLE DE MODAIS
+   * ===========================================================================
+   */
+  const [isAuthModalOpen, setIsAuthModalOpen] =
+    useState(false)
+
+  const [isPaymentModalOpen, setIsPaymentModalOpen] =
+    useState(false)
+
+  /**
+   * ===========================================================================
+   * ETAPA DO MODAL DE PAGAMENTO
+   * ===========================================================================
+   */
+  const [paymentStep, setPaymentStep] =
+    useState<BndesPaymentStep>("precapturing")
+
+  /**
+   * ===========================================================================
+   * 1️⃣ Quando um pedido valido e encontrado
+   * ===========================================================================
    */
   function handleOrderFound(foundOrder: Order) {
     setOrder(foundOrder)
@@ -58,7 +93,9 @@ export function PaymentContent() {
   }
 
   /**
-   * Voltar para consulta de pedido
+   * ===========================================================================
+   * 2️⃣ Voltar para consulta de pedido
+   * ===========================================================================
    */
   function handleBackToSearch() {
     setOrder(null)
@@ -68,45 +105,102 @@ export function PaymentContent() {
   }
 
   /**
-   * Quando usuario seleciona parcelamento e clica em pagar
-   * Agora tambem recebe os dados do cartao
+   * ===========================================================================
+   * 3️⃣ Usuario seleciona parcelamento e clica em pagar
+   *    → Abrimos modal de autorizacao do gerente
+   * ===========================================================================
    */
-  function handleProceedToPayment(selectedParcelamento: InstallmentOption, card: CardData) {
+  function handleProceedToPayment(
+    selectedParcelamento: InstallmentOption,
+    card: CardData
+  ) {
     setParcelamento(selectedParcelamento)
     setCardData(card)
     setIsAuthModalOpen(true)
   }
 
   /**
-   * Quando autorizacao do gerente e validada
+   * ===========================================================================
+   * 4️⃣ Gerente autorizou pagamento
+   *
+   * Fluxo:
+   * - Fecha modal de autorizacao
+   * - Abre modal de processamento
+   * - Executa:
+   *      a) Pre-captura
+   *      b) Captura
+   * - Se sucesso → Tela de sucesso
+   * - Se erro → Mantem usuario no checkout
+   * ===========================================================================
    */
-  async function handleAuthorized(codigo: string) {
+  async function handleAuthorized() {
     setIsAuthModalOpen(false)
-    setCurrentStep("processing")
-    setProcessingStep("initiating")
+    setIsPaymentModalOpen(true)
 
-    if (!order || !parcelamento) return
+    if (!order || !parcelamento || !cardData) {
+      setIsPaymentModalOpen(false)
+      return
+    }
 
-    // Processar pagamento
-    const result = await processarPagamento(
-      order.numeroPedido,
-      parcelamento,
-      codigo,
-      setProcessingStep
-    )
+    try {
+      /**
+       * ===============================
+       * PRÉ-CAPTURA
+       * ===============================
+       */
+      setPaymentStep("precapturing")
 
-    if (result.success && result.receipt) {
-      setReceipt(result.receipt)
+      // 🔥 Aqui depois entra a chamada real da API
+      await new Promise((resolve) => setTimeout(resolve, 1500))
+
+      /**
+       * ===============================
+       * CAPTURA
+       * ===============================
+       */
+      setPaymentStep("capturing")
+
+      // 🔥 Aqui depois entra a chamada real da API
+      await new Promise((resolve) => setTimeout(resolve, 1500))
+
+      /**
+       * ===============================
+       * SUCESSO
+       * ===============================
+       */
+      setPaymentStep("success")
+
+      await new Promise((resolve) => setTimeout(resolve, 1000))
+
+      /**
+       * Simulacao de recibo
+       * (Depois substituiremos pelo retorno real do BNDES)
+       */
+      const fakeReceipt: PaymentReceipt = {
+        numeroPedido: order.numeroPedido,
+        valor: parcelamento.valorTotal,
+        parcelas: parcelamento.quantidadeParcelas,
+        data: new Date().toISOString(),
+        autorizacao: "BNDES-OK-123456",
+      }
+
+      setReceipt(fakeReceipt)
+      setIsPaymentModalOpen(false)
       setCurrentStep("success")
-    } else {
-      // Em caso de erro, voltar para checkout
-      // TODO: Exibir mensagem de erro
-      setCurrentStep("checkout")
+
+    } catch (error) {
+      setPaymentStep("error")
+
+      setTimeout(() => {
+        setIsPaymentModalOpen(false)
+      }, 2000)
     }
   }
 
   /**
-   * Iniciar novo pagamento
+   * ===========================================================================
+   * 5️⃣ Iniciar novo pagamento
+   * ===========================================================================
    */
   function handleNewPayment() {
     setOrder(null)
@@ -116,13 +210,18 @@ export function PaymentContent() {
     setCurrentStep("search")
   }
 
-  // Renderizar etapa atual
+  /**
+   * ===========================================================================
+   * RENDERIZACAO POR ETAPA
+   * ===========================================================================
+   */
   switch (currentStep) {
     case "search":
       return <OrderSearch onOrderFound={handleOrderFound} />
 
     case "checkout":
       if (!order) return null
+
       return (
         <>
           <PaymentCheckout
@@ -130,19 +229,23 @@ export function PaymentContent() {
             onBack={handleBackToSearch}
             onProceed={handleProceedToPayment}
           />
+
           <ManagerAuthModal
             isOpen={isAuthModalOpen}
             onClose={() => setIsAuthModalOpen(false)}
             onAuthorized={handleAuthorized}
           />
+
+          <BndesPaymentModal
+            open={isPaymentModalOpen}
+            step={paymentStep}
+          />
         </>
       )
 
-    case "processing":
-      return <PaymentProcessing currentStep={processingStep} />
-
     case "success":
       if (!receipt) return null
+
       return (
         <PaymentSuccess
           receipt={receipt}
