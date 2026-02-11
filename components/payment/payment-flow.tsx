@@ -148,27 +148,28 @@ export function PaymentFlow({ order }: Props) {
 
       const agora = new Date()
 
+      // -----------------------------
+      // MONTAGEM DO COMPROVANTE FINAL
+      // -----------------------------
+
       const receiptFinal: PaymentReceipt = {
-        status: "approved",
-        numeroTransacao: precapturaResp.tid,
-        numeroPedido: order.numeroPedido,
+        numeroPedidoInterno: order.numeroPedido,
         numeroPedidoBndes,
-        data: agora.toLocaleDateString("pt-BR"),
-        hora: agora.toLocaleTimeString("pt-BR"),
-        cliente: {
-          nome: order.cliente.nome,
-          cnpj: order.cliente.cnpj,
-        },
+
         valorOriginal: order.valorBase,
         juros: parcelamento.valorJuros,
         valorTotal: parcelamento.valorTotal,
         parcelas: parcelamento.parcelas,
         valorParcela: parcelamento.valorParcela,
-        autorizacao: {
-          codigo: precapturaResp.numeroAutorizacao,
-          gerente: nomeGerente,
-          cnpjAdquirente: precapturaResp.cnpjAdquirente,
-        },
+
+        numeroAutorizacao: precapturaResp.numeroAutorizacao,
+        tid: precapturaResp.tid,
+
+        situacao: capturaResp.situacao,
+        descricao: capturaResp.descricao,
+        dataHoraCaptura: capturaResp.dataHoraCaptura,
+
+        cnpjAdquirente: capturaResp.cnpjAdquirente,
       }
 
       setReceipt(receiptFinal)
