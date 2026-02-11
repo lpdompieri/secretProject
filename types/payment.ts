@@ -112,43 +112,31 @@ export interface CardValidationErrors {
  * - Pré-captura
  * - Captura
  */
-export interface PaymentReceipt {
-  // Pedido interno
-  numeroPedido: string
+// -----------------------------
+// MONTAGEM DO COMPROVANTE FINAL
+// -----------------------------
 
-  // Pedido gerado no BNDES
-  numeroPedidoBndes: string
+const receiptFinal: PaymentReceipt = {
+  numeroPedidoInterno: order.numeroPedido,
+  numeroPedidoBndes: numeroPedidoBndes,
 
-  // Transação
-  numeroTransacao?: string
-  tid: string
+  valorOriginal: order.valorBase,
+  juros: parcelamento.valorJuros,
+  valorTotal: parcelamento.valorTotal,
+  parcelas: parcelamento.parcelas,
+  valorParcela: parcelamento.valorParcela,
 
-  // Datas
-  data: string
-  hora: string
-  dataHoraCaptura?: string
+  // PRÉ-CAPTURA
+  numeroAutorizacao: precapturaResp.numeroAutorizacao ?? "",
+  tid: precapturaResp.tid ?? "",
 
-  // Valores
-  valorOriginal: number
-  juros: number
-  valorTotal: number
-  parcelas: number
-  valorParcela: number
-
-  // Status final baseado na situacao BNDES
-  status: PaymentStatus
-
-  // Cliente
-  cliente: {
-    nome: string
-    cnpj: string
-  }
-
-  // Autorização retornada na pré-captura
-  autorizacao: {
-    codigo: string
-  }
+  // CAPTURA
+  situacao: capturaResp.situacao ?? 0,
+  descricao: capturaResp.descricao ?? "",
+  dataHoraCaptura: capturaResp.dataHoraCaptura ?? "",
+  cnpjAdquirente: capturaResp.cnpjAdquirente ?? "",
 }
+
 
 // =============================================================================
 // RESULTADO PROCESSAMENTO
