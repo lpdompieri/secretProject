@@ -12,6 +12,12 @@ import { Loader2, RefreshCw, CheckCircle2, XCircle } from "lucide-react"
 import type { Order } from "@/types/order"
 
 // ============================================================
+// CONFIG MOCK
+// ============================================================
+
+const USE_MOCK = true
+
+// ============================================================
 // TIPOS
 // ============================================================
 
@@ -34,7 +40,43 @@ interface Props {
 }
 
 // ============================================================
-// COMPONENTE PRINCIPAL
+// MOCK FUNCTIONS
+// ============================================================
+
+function mockFetchInvoices(): Promise<Invoice[]> {
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      resolve([
+        {
+          id: "1",
+          numero: "423424",
+          serie: "S1",
+          dataEmissao: "2026-01-22",
+          integradoBndes: true,
+          dataIntegracao: "22/01/2026",
+        },
+        {
+          id: "2",
+          numero: "423432",
+          serie: "S1",
+          dataEmissao: "2026-01-24",
+          integradoBndes: false,
+        },
+      ])
+    }, 1000)
+  })
+}
+
+function mockResendInvoice(): Promise<{ success: boolean }> {
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      resolve({ success: true })
+    }, 1500)
+  })
+}
+
+// ============================================================
+// COMPONENTE
 // ============================================================
 
 export function SendInvoiceModal({
@@ -48,10 +90,6 @@ export function SendInvoiceModal({
   const [loading, setLoading] = useState(false)
   const [processingInvoiceId, setProcessingInvoiceId] = useState<string | null>(null)
 
-  // ==========================================================
-  // RESET AO FECHAR
-  // ==========================================================
-
   const handleClose = () => {
     setViewMode("details")
     setInvoices([])
@@ -60,7 +98,7 @@ export function SendInvoiceModal({
   }
 
   // ==========================================================
-  // CARREGAR NOTAS DO PEDIDO
+  // LOAD INVOICES
   // ==========================================================
 
   const loadInvoices = useCallback(async () => {
@@ -69,34 +107,14 @@ export function SendInvoiceModal({
     setLoading(true)
 
     try {
-      const response = await fetch(`/api/orders/${order.id}/invoices`)
-      const data = await response.json()
-
-      const backendInvoices: Invoice[] = data?.data ?? []
-
-      const enriched = await Promise.all(
-        backendInvoices.map(async (inv) => {
-          try {
-            const bndesRes = await fetch(
-              `/api/bndes/check-invoice?numero=${inv.numero}&serie=${inv.serie}`
-            )
-            const bndesData = await bndesRes.json()
-
-            return {
-              ...inv,
-              integradoBndes: Boolean(bndesData?.integrado),
-              dataIntegracao: bndesData?.dataIntegracao,
-            }
-          } catch {
-            return {
-              ...inv,
-              integradoBndes: false,
-            }
-          }
-        })
-      )
-
-      setInvoices(enriched)
+      if (USE_MOCK) {
+        const data = await mockFetchInvoices()
+        setInvoices(data)
+      } else {
+        const response = await fetch(`/api/orders/${order.id}/invoices`)
+        const data = await response.json()
+        setInvoices(data?.data ?? [])
+      }
     } catch (error) {
       console.error("Erro ao carregar notas:", error)
       setInvoices([])
@@ -112,27 +130,41 @@ export function SendInvoiceModal({
   }, [isOpen, viewMode, loadInvoices])
 
   // ==========================================================
-  // REENVIAR NOTA
+  // RESEND
   // ==========================================================
 
   const handleResendInvoice = async (invoice: Invoice) => {
     setProcessingInvoiceId(invoice.id)
 
     try {
-      await fetch(`/api/invoices/${invoice.id}`)
+      if (USE_MOCK) {
+        await mockResendInvoice()
 
-      const response = await fetch(`/api/bndes/send-invoice`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ invoiceId: invoice.id }),
-      })
+        setInvoices((prev) =>
+          prev.map((inv) =>
+            inv.id === invoice.id
+              ? {
+                  ...inv,
+                  integradoBndes: true,
+                  dataIntegracao: new Date().toLocaleDateString("pt-BR"),
+                }
+              : inv
+          )
+        )
+      } else {
+        const response = await fetch(`/api/bndes/send-invoice`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ invoiceId: invoice.id }),
+        })
 
-      const result = await response.json()
+        const result = await response.json()
 
-      if (result?.success) {
-        await loadInvoices()
+        if (result?.success) {
+          await loadInvoices()
+        }
       }
     } catch (error) {
       console.error("Erro ao reenviar nota:", error)
@@ -181,51 +213,43 @@ export function SendInvoiceModal({
                   </tr>
                 </thead>
                 <tbody>
-                  {invoices.length === 0 ? (
-                    <tr>
-                      <td colSpan={5} className="text-center p-6 text-muted-foreground">
-                        Nenhuma nota encontrada para este pedido
+                  {invoices.map((inv) => (
+                    <tr key={inv.id} className="border-b">
+                      <td className="p-3">{inv.numero}</td>
+                      <td className="p-3">{inv.serie}</td>
+                      <td className="p-3">
+                        {new Date(inv.dataEmissao).toLocaleDateString("pt-BR")}
+                      </td>
+                      <td className="p-3">
+                        {inv.integradoBndes ? (
+                          <CheckCircle2 className="text-green-600 h-4 w-4" />
+                        ) : (
+                          <XCircle className="text-red-600 h-4 w-4" />
+                        )}
+                      </td>
+                      <td className="p-3">
+                        {inv.integradoBndes ? (
+                          inv.dataIntegracao ?? "-"
+                        ) : (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleResendInvoice(inv)}
+                            disabled={processingInvoiceId === inv.id}
+                          >
+                            {processingInvoiceId === inv.id ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <>
+                                <RefreshCw className="h-4 w-4 mr-1" />
+                                Reenviar
+                              </>
+                            )}
+                          </Button>
+                        )}
                       </td>
                     </tr>
-                  ) : (
-                    invoices.map((inv) => (
-                      <tr key={inv.id} className="border-b">
-                        <td className="p-3">{inv.numero}</td>
-                        <td className="p-3">{inv.serie}</td>
-                        <td className="p-3">
-                          {new Date(inv.dataEmissao).toLocaleDateString("pt-BR")}
-                        </td>
-                        <td className="p-3">
-                          {inv.integradoBndes ? (
-                            <CheckCircle2 className="text-green-600 h-4 w-4" />
-                          ) : (
-                            <XCircle className="text-red-600 h-4 w-4" />
-                          )}
-                        </td>
-                        <td className="p-3">
-                          {inv.integradoBndes ? (
-                            inv.dataIntegracao ?? "-"
-                          ) : (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => handleResendInvoice(inv)}
-                              disabled={processingInvoiceId === inv.id}
-                            >
-                              {processingInvoiceId === inv.id ? (
-                                <Loader2 className="h-4 w-4 animate-spin" />
-                              ) : (
-                                <>
-                                  <RefreshCw className="h-4 w-4 mr-1" />
-                                  Reenviar
-                                </>
-                              )}
-                            </Button>
-                          )}
-                        </td>
-                      </tr>
-                    ))
-                  )}
+                  ))}
                 </tbody>
               </table>
             </div>
