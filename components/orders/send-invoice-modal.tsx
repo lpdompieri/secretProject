@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useCallback } from "react"
+import { useEffect, useState, useCallback, useRef } from "react"
 import {
   Dialog,
   DialogContent,
@@ -8,7 +8,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
-import { Loader2, RefreshCw, CheckCircle2, XCircle } from "lucide-react"
+import { Upload, FileText, Loader2, RefreshCw, CheckCircle2, XCircle, X } from "lucide-react"
+import { cn } from "@/lib/utils"
 import type { Order } from "@/types/order"
 
 // ============================================================
@@ -75,6 +76,14 @@ function mockResendInvoice(): Promise<{ success: boolean }> {
   })
 }
 
+function mockSendInvoice(): Promise<{ success: boolean }> {
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      resolve({ success: true })
+    }, 1500)
+  })
+}
+
 // ============================================================
 // COMPONENTE
 // ============================================================
@@ -90,9 +99,17 @@ export function SendInvoiceModal({
   const [loading, setLoading] = useState(false)
   const [processingInvoiceId, setProcessingInvoiceId] = useState<string | null>(null)
 
+  // Upload XML
+  const [selectedFile, setSelectedFile] = useState<File | null>(null)
+  const [formError, setFormError] = useState<string | null>(null)
+  const [sending, setSending] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
   const handleClose = () => {
     setViewMode("details")
     setInvoices([])
+    setSelectedFile(null)
+    setFormError(null)
     setProcessingInvoiceId(null)
     onClose()
   }
@@ -151,25 +168,68 @@ export function SendInvoiceModal({
               : inv
           )
         )
-      } else {
-        const response = await fetch(`/api/bndes/send-invoice`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ invoiceId: invoice.id }),
-        })
-
-        const result = await response.json()
-
-        if (result?.success) {
-          await loadInvoices()
-        }
       }
     } catch (error) {
       console.error("Erro ao reenviar nota:", error)
     } finally {
       setProcessingInvoiceId(null)
+    }
+  }
+
+  // ==========================================================
+  // UPLOAD XML
+  // ==========================================================
+
+  function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    if (!file.name.toLowerCase().endsWith(".xml")) {
+      setFormError("Selecione um arquivo XML válido")
+      return
+    }
+
+    setSelectedFile(file)
+    setFormError(null)
+  }
+
+  function handleRemoveFile() {
+    setSelectedFile(null)
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ""
+    }
+  }
+
+  async function handleSendInvoice() {
+    if (!selectedFile) {
+      setFormError("Selecione um XML antes de enviar")
+      return
+    }
+
+    setSending(true)
+
+    try {
+      if (USE_MOCK) {
+        await mockSendInvoice()
+      } else {
+        const formData = new FormData()
+        formData.append("file", selectedFile)
+
+        await fetch(`/api/bndes/send-invoice`, {
+          method: "POST",
+          body: formData,
+        })
+      }
+
+      await loadInvoices()
+      setViewMode("details")
+      setSelectedFile(null)
+      onSuccess()
+    } catch (error) {
+      console.error("Erro ao enviar XML:", error)
+      setFormError("Erro ao enviar nota fiscal")
+    } finally {
+      setSending(false)
     }
   }
 
@@ -265,17 +325,79 @@ export function SendInvoiceModal({
             </div>
           </>
         ) : (
-          <div className="py-8 text-center">
-            <p>Selecione a nota fiscal para envio.</p>
+          <div className="space-y-6">
+            <div className="space-y-2">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".xml"
+                onChange={handleFileSelect}
+                className="sr-only"
+              />
 
-            <div className="flex justify-end gap-2 mt-6">
+              {!selectedFile ? (
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className={cn(
+                    "flex flex-col items-center justify-center p-8 border-2 border-dashed rounded-lg",
+                    "border-border hover:border-primary/50 hover:bg-muted/50 transition-colors",
+                    "cursor-pointer w-full"
+                  )}
+                >
+                  <Upload className="h-10 w-10 text-muted-foreground mb-3" />
+                  <p className="text-sm font-medium">
+                    Clique para selecionar o XML da nota fiscal
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Apenas arquivos .xml
+                  </p>
+                </button>
+              ) : (
+                <div className="flex items-center gap-3 p-4 bg-muted rounded-lg">
+                  <FileText className="h-8 w-8 text-primary shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium truncate">
+                      {selectedFile.name}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {(selectedFile.size / 1024).toFixed(2)} KB
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    onClick={handleRemoveFile}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              )}
+            </div>
+
+            {formError && (
+              <div className="p-3 text-sm text-destructive bg-destructive/10 border border-destructive/20 rounded-lg">
+                {formError}
+              </div>
+            )}
+
+            <div className="flex justify-end gap-2">
               <Button
                 variant="outline"
                 onClick={() => setViewMode("details")}
               >
                 Cancelar
               </Button>
-              <Button onClick={onSuccess}>Enviar</Button>
+              <Button
+                onClick={handleSendInvoice}
+                disabled={!selectedFile || sending}
+              >
+                {sending ? (
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                ) : null}
+                Enviar
+              </Button>
             </div>
           </div>
         )}
