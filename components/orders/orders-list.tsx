@@ -235,73 +235,235 @@ export function OrdersList({
          ABA PENDÊNCIAS
       ====================================================== */}
 
-      {tab === "pendencias" && (
-        <>
-          <Card>
-            <CardContent className="p-4 flex items-center gap-4">
-              <span className="font-medium text-sm">Filial:</span>
-              <select
-                className="border rounded px-3 py-2 text-sm"
-                value={filialSelecionada}
-                onChange={(e) => setFilialSelecionada(e.target.value)}
-              >
-                <option value="">Selecione</option>
-                {MOCK_FILIAIS.map(f => (
-                  <option key={f.id} value={f.id}>{f.nome}</option>
-                ))}
-              </select>
-            </CardContent>
-          </Card>
+     {tab === "pendencias" && (
+  <>
+    {/* HEADER PADRONIZADO */}
+    <header className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div>
+        <h1 className="text-2xl font-bold text-foreground">
+          Pendências - NFE
+        </h1>
+        <p className="text-muted-foreground mt-1">
+          Notas fiscais pendentes de integração com o BNDES
+        </p>
+      </div>
+    </header>
 
-          {filialSelecionada && (
-            <Card>
-              <CardContent className="p-0">
+    {/* FILTRO FILIAL */}
+    <Card>
+      <CardContent className="p-4 flex items-center gap-4">
+        <Store className="h-4 w-4 text-muted-foreground" />
+        <span className="font-medium text-sm">Filial:</span>
+
+        <select
+          className="border rounded px-3 py-2 text-sm"
+          value={filialSelecionada}
+          onChange={(e) => setFilialSelecionada(e.target.value)}
+        >
+          <option value="">Selecione</option>
+          {MOCK_FILIAIS.map((f) => (
+            <option key={f.id} value={f.id}>
+              {f.nome}
+            </option>
+          ))}
+        </select>
+      </CardContent>
+    </Card>
+
+    {filialSelecionada && (
+      <>
+        {/* ============================
+            DESKTOP TABLE
+        ============================ */}
+        <div className="hidden md:block">
+          <Card>
+            <CardContent className="p-0">
+              <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead>
                     <tr className="border-b bg-muted/50">
                       <th className="p-4 text-left">Pedido</th>
-                      <th className="p-4 text-left">Nota</th>
+                      <th className="p-4 text-left">Nota Fiscal</th>
                       <th className="p-4 text-left">Valor</th>
-                      <th className="p-4 text-left">Data</th>
+                      <th className="p-4 text-left">Data Emissão</th>
                       <th className="p-4 text-left">Status</th>
+                      <th className="p-4 text-right">Ações</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {pendencias.map((p, i) => (
-                      <tr key={i} className="border-b hover:bg-muted/30">
-                        <td className="p-4">{p.pedido}</td>
-                        <td className="p-4">{p.nota}</td>
-                        <td className="p-4">
-                          {p.valor.toLocaleString("pt-BR", {
-                            style: "currency",
-                            currency: "BRL",
-                          })}
-                        </td>
-                        <td className="p-4">{p.data}</td>
-                        <td className="p-4">
-                          {p.status === "PENDENTE"
-                            ? "Pendente"
-                            : "Em processamento"}
+                    {pendencias.length === 0 ? (
+                      <tr>
+                        <td
+                          colSpan={6}
+                          className="p-8 text-center text-muted-foreground"
+                        >
+                          Nenhuma pendência encontrada
                         </td>
                       </tr>
-                    ))}
+                    ) : (
+                      pendencias.map((p, i) => (
+                        <tr
+                          key={i}
+                          className="border-b last:border-0 hover:bg-muted/30 transition-colors"
+                        >
+                          <td className="p-4 font-medium">
+                            #{p.pedido}
+                          </td>
+
+                          <td className="p-4">
+                            {p.nota}
+                          </td>
+
+                          <td className="p-4">
+                            <span className="font-semibold">
+                              {p.valor.toLocaleString("pt-BR", {
+                                style: "currency",
+                                currency: "BRL",
+                              })}
+                            </span>
+                          </td>
+
+                          <td className="p-4">
+                            {p.data}
+                          </td>
+
+                          <td className="p-4">
+                            <StatusBadge
+                              status={
+                                p.status === "PENDENTE"
+                                  ? "EM_PROCESSO_PAGAMENTO"
+                                  : "FATURADO"
+                              }
+                            />
+                          </td>
+
+                          <td className="p-4 text-right">
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8"
+                                >
+                                  <MoreVertical className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem>
+                                  <Eye className="h-4 w-4 mr-2" />
+                                  Visualizar Pedido
+                                </DropdownMenuItem>
+
+                                {p.status === "PENDENTE" && (
+                                  <DropdownMenuItem>
+                                    <Upload className="h-4 w-4 mr-2" />
+                                    Integrar individualmente
+                                  </DropdownMenuItem>
+                                )}
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </td>
+                        </tr>
+                      ))
+                    )}
                   </tbody>
                 </table>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* ============================
+            MOBILE CARDS
+        ============================ */}
+        <div className="md:hidden space-y-4">
+          {pendencias.length === 0 ? (
+            <Card>
+              <CardContent className="p-8 text-center text-muted-foreground">
+                Nenhuma pendência encontrada
               </CardContent>
             </Card>
-          )}
+          ) : (
+            pendencias.map((p, i) => (
+              <Card key={i} className="overflow-hidden">
+                <CardContent className="p-4">
+                  <div className="flex items-start justify-between mb-3">
+                    <div>
+                      <p className="font-medium">
+                        Pedido #{p.pedido}
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        Nota {p.nota}
+                      </p>
+                    </div>
 
-          {filialSelecionada && (
-            <Button
-              onClick={processIntegracao}
-              disabled={!pendencias.some(p => p.status === "PENDENTE")}
-              className="fixed bottom-8 right-8 shadow-lg"
-            >
-              INTEGRAR NOTAS PENDENTES
-            </Button>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                        >
+                          <MoreVertical className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem>
+                          <Eye className="h-4 w-4 mr-2" />
+                          Visualizar Pedido
+                        </DropdownMenuItem>
+
+                        {p.status === "PENDENTE" && (
+                          <DropdownMenuItem>
+                            <Upload className="h-4 w-4 mr-2" />
+                            Integrar individualmente
+                          </DropdownMenuItem>
+                        )}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="flex justify-between">
+                      <span className="font-semibold text-lg">
+                        {p.valor.toLocaleString("pt-BR", {
+                          style: "currency",
+                          currency: "BRL",
+                        })}
+                      </span>
+
+                      <StatusBadge
+                        status={
+                          p.status === "PENDENTE"
+                            ? "EM_PROCESSO_PAGAMENTO"
+                            : "FATURADO"
+                        }
+                      />
+                    </div>
+
+                    <p className="text-sm text-muted-foreground">
+                      Emissão: {p.data}
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            ))
           )}
-        </>
-      )}
+        </div>
+
+        {/* BOTÃO FLUTUANTE */}
+        <Button
+          onClick={processIntegracao}
+          disabled={!pendencias.some((p) => p.status === "PENDENTE")}
+          className="fixed bottom-8 right-8 shadow-lg"
+        >
+          INTEGRAR NOTAS PENDENTES
+        </Button>
+      </>
+    )}
+  </>
+)}
+
 
     </div>
   )
