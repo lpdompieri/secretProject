@@ -5,7 +5,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Checkbox } from "@/components/ui/checkbox"
-import { Store, Package, Loader2, AlertCircle } from "lucide-react"
+import { Store, Loader2, AlertCircle } from "lucide-react"
 
 type Status = "PENDENTE" | "EM_PROCESSAMENTO" | "INTEGRADO" | "ERRO"
 
@@ -68,6 +68,8 @@ export function OrdersPendencias() {
     .filter(p => p.situacao === "PENDENTE")
     .reduce((acc, p) => acc + p.valor, 0)
 
+  const existePendente = pendencias.some(p => p.situacao === "PENDENTE")
+
   const pendenciasFiltradas = useMemo(() => {
     if (filtroStatus === "TODOS") return pendencias
     return pendencias.filter(p => p.situacao === filtroStatus)
@@ -81,15 +83,27 @@ export function OrdersPendencias() {
     )
   }
 
-  const integrarSelecionadas = () => {
+  const integrar = (ids: string[]) => {
     setPendencias(prev =>
       prev.map(p =>
-        selecionadas.includes(p.id)
+        ids.includes(p.id)
           ? { ...p, situacao: "EM_PROCESSAMENTO" }
           : p
       )
     )
     setSelecionadas([])
+  }
+
+  const handleIntegrarPendentes = () => {
+    if (selecionadas.length > 0) {
+      integrar(selecionadas)
+    } else {
+      const idsPendentes = pendencias
+        .filter(p => p.situacao === "PENDENTE")
+        .map(p => p.id)
+
+      integrar(idsPendentes)
+    }
   }
 
   const renderStatus = (status: Status) => {
@@ -98,7 +112,7 @@ export function OrdersPendencias() {
         return <Badge variant="secondary">Pendente</Badge>
       case "EM_PROCESSAMENTO":
         return (
-          <Badge variant="default" className="gap-1 flex items-center">
+          <Badge className="gap-1 flex items-center">
             <Loader2 className="h-3 w-3 animate-spin" />
             Processando
           </Badge>
@@ -118,7 +132,7 @@ export function OrdersPendencias() {
   return (
     <div className="space-y-6">
 
-      {/* HEADER E FILIAL */}
+      {/* HEADER */}
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
         <div>
           <h2 className="text-xl font-bold">Central de Integração Fiscal</h2>
@@ -178,6 +192,16 @@ export function OrdersPendencias() {
             </Card>
           </div>
 
+          {/* BOTÃO GLOBAL */}
+          <div className="flex justify-end">
+            <Button
+              onClick={handleIntegrarPendentes}
+              disabled={!existePendente}
+            >
+              INTEGRAR NOTAS PENDENTES
+            </Button>
+          </div>
+
           {/* FILTRO */}
           <div className="flex gap-3">
             {["TODOS", "PENDENTE", "EM_PROCESSAMENTO"].map(status => (
@@ -192,14 +216,14 @@ export function OrdersPendencias() {
             ))}
           </div>
 
-          {/* ACTION BAR */}
+          {/* ACTION BAR SELEÇÃO */}
           {selecionadas.length > 0 && (
             <Card className="border-primary">
               <CardContent className="p-4 flex items-center justify-between">
                 <span className="text-sm">
                   {selecionadas.length} nota(s) selecionada(s)
                 </span>
-                <Button onClick={integrarSelecionadas}>
+                <Button onClick={() => integrar(selecionadas)}>
                   Integrar selecionadas
                 </Button>
               </CardContent>
