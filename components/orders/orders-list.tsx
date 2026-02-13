@@ -3,8 +3,7 @@
 import { useState, useEffect, useCallback } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Loader2, RefreshCw, Search, Package } from "lucide-react"
+import { Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { listarPedidos } from "@/services/orders-service"
 import { useEmpresa } from "@/contexts/empresa-context"
@@ -33,17 +32,11 @@ const MOCK_PENDENCIAS = [
 type TabMode = "pedidos" | "pendencias"
 type StepMode = "list" | "processing" | "success"
 
-export function OrdersList({
-  onViewReceipt,
-  onViewDetails,
-  onSendInvoice,
-  onResendPayment,
-}: any) {
+export function OrdersList() {
   const { empresaAtiva } = useEmpresa()
 
   const [tab, setTab] = useState<TabMode>("pedidos")
   const [step, setStep] = useState<StepMode>("list")
-
   const [orders, setOrders] = useState<Order[]>([])
   const [isLoading, setIsLoading] = useState(true)
 
@@ -71,7 +64,7 @@ export function OrdersList({
   }, [loadOrders, empresaAtiva])
 
   // ==========================================================
-  // PROCESSAMENTO INTEGRAÇÃO
+  // PROCESSAMENTO
   // ==========================================================
 
   async function processIntegracao() {
@@ -88,20 +81,15 @@ export function OrdersList({
     setStep("success")
   }
 
-  // ==========================================================
-  // RENDER PROCESSING
-  // ==========================================================
-
   if (step === "processing") {
     return (
       <Card>
-        <CardContent className="py-12 text-center space-y-6">
-          <Loader2 className="h-16 w-16 animate-spin text-primary mx-auto" />
+        <CardContent className="py-12 text-center space-y-4">
+          <Loader2 className="h-12 w-12 animate-spin text-primary mx-auto" />
           <h2 className="text-xl font-semibold">
             Envio de Notas Fiscais para o BNDES
           </h2>
-
-          <div className="space-y-3 text-sm text-muted-foreground">
+          <div className="text-sm text-muted-foreground space-y-1">
             <p>Consultando notas fiscais</p>
             <p>Preparando envio das notas</p>
             <p>Agendamento de envio feito com sucesso.</p>
@@ -111,28 +99,19 @@ export function OrdersList({
     )
   }
 
-  // ==========================================================
-  // SUCCESS
-  // ==========================================================
-
   if (step === "success") {
     return (
       <Card>
-        <CardContent className="py-12 text-center space-y-6">
-          <h2 className="text-2xl font-bold">
+        <CardContent className="py-12 text-center space-y-4">
+          <h2 className="text-xl font-bold">
             Processo finalizado com sucesso.
           </h2>
-
-          <p className="text-muted-foreground max-w-lg mx-auto">
+          <p className="text-muted-foreground max-w-md mx-auto">
             As notas fiscais pendentes estão programadas para serem enviadas.
             Em breve as pendências serão resolvidas.
-            <br /><br />
             Você recebera uma notificação quando o processo terminar.
           </p>
-
-          <Button onClick={() => setStep("list")}>
-            OK
-          </Button>
+          <Button onClick={() => setStep("list")}>OK</Button>
         </CardContent>
       </Card>
     )
@@ -146,72 +125,94 @@ export function OrdersList({
     <div className="space-y-6 relative">
 
       {/* TABS */}
-      <div className="flex gap-4 border-b">
+      <div className="flex gap-6 border-b">
         <button
           onClick={() => setTab("pedidos")}
-          className={cn("pb-2", tab === "pedidos" && "border-b-2 border-primary font-semibold")}
+          className={cn("pb-2 text-sm",
+            tab === "pedidos" && "border-b-2 border-primary font-semibold")}
         >
           Pedidos
         </button>
+
         <button
           onClick={() => setTab("pendencias")}
-          className={cn("pb-2", tab === "pendencias" && "border-b-2 border-primary font-semibold")}
+          className={cn("pb-2 text-sm",
+            tab === "pendencias" && "border-b-2 border-primary font-semibold")}
         >
           Pendências - NFE
         </button>
       </div>
 
       {/* ======================================================
-         ABA PEDIDOS ORIGINAL
+         ABA PEDIDOS RESTAURADA
       ====================================================== */}
 
       {tab === "pedidos" && (
-        <>
-          {isLoading ? (
-            <div className="text-center py-12">
-              <Loader2 className="h-6 w-6 animate-spin mx-auto" />
-            </div>
-          ) : (
-            <Card>
-              <CardContent className="p-6">
-                {orders.length} pedidos carregados
-              </CardContent>
-            </Card>
-          )}
-        </>
+        <Card>
+          <CardContent className="p-0">
+            {isLoading ? (
+              <div className="text-center py-12">
+                <Loader2 className="h-6 w-6 animate-spin mx-auto" />
+              </div>
+            ) : (
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b bg-muted/50">
+                    <th className="p-3 text-left">Pedido</th>
+                    <th className="p-3 text-left">Cliente</th>
+                    <th className="p-3 text-left">Valor</th>
+                    <th className="p-3 text-left">Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {orders.map((order) => (
+                    <tr key={order.id} className="border-b">
+                      <td className="p-3 font-medium">
+                        {order.numeroPedido}
+                      </td>
+                      <td className="p-3">
+                        {order.cliente.nome}
+                      </td>
+                      <td className="p-3">
+                        {order.valorTotal.toLocaleString("pt-BR", {
+                          style: "currency",
+                          currency: "BRL",
+                        })}
+                      </td>
+                      <td className="p-3">
+                        {order.status}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </CardContent>
+        </Card>
       )}
 
       {/* ======================================================
-         ABA PENDÊNCIAS
+         ABA PENDÊNCIAS PADRONIZADA
       ====================================================== */}
 
       {tab === "pendencias" && (
         <>
-          {/* FILIAL */}
           <Card>
-            <CardContent className="p-4 flex flex-col sm:flex-row gap-4 items-center justify-between">
-              <div className="flex items-center gap-4">
-                <span className="font-medium">Filial:</span>
-
-                {MOCK_FILIAIS.length > 1 ? (
-                  <select
-                    className="border rounded px-3 py-2"
-                    value={filialSelecionada ?? ""}
-                    onChange={(e) => setFilialSelecionada(e.target.value)}
-                  >
-                    <option value="">Selecione</option>
-                    {MOCK_FILIAIS.map(f => (
-                      <option key={f.id} value={f.id}>{f.nome}</option>
-                    ))}
-                  </select>
-                ) : (
-                  <span>{MOCK_FILIAIS[0].nome}</span>
-                )}
-              </div>
+            <CardContent className="p-4 flex items-center gap-4">
+              <span className="font-medium text-sm">Filial:</span>
+              <select
+                className="border rounded px-3 py-2 text-sm"
+                value={filialSelecionada ?? ""}
+                onChange={(e) => setFilialSelecionada(e.target.value)}
+              >
+                <option value="">Selecione</option>
+                {MOCK_FILIAIS.map(f => (
+                  <option key={f.id} value={f.id}>{f.nome}</option>
+                ))}
+              </select>
             </CardContent>
           </Card>
 
-          {/* TABELA */}
           {filialSelecionada && (
             <Card>
               <CardContent className="p-0">
@@ -222,7 +223,7 @@ export function OrdersList({
                       <th className="p-3 text-left">Nota Fiscal</th>
                       <th className="p-3 text-left">Valor</th>
                       <th className="p-3 text-left">Data Emissão</th>
-                      <th className="p-3 text-left">Situação de envio</th>
+                      <th className="p-3 text-left">Situação</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -231,7 +232,10 @@ export function OrdersList({
                         <td className="p-3">{p.pedido}</td>
                         <td className="p-3">{p.nota}</td>
                         <td className="p-3">
-                          {p.valor.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                          {p.valor.toLocaleString("pt-BR", {
+                            style: "currency",
+                            currency: "BRL"
+                          })}
                         </td>
                         <td className="p-3">{p.data}</td>
                         <td className="p-3">
@@ -247,7 +251,6 @@ export function OrdersList({
             </Card>
           )}
 
-          {/* BOTÃO FLUTUANTE */}
           {filialSelecionada && (
             <Button
               onClick={processIntegracao}
@@ -259,6 +262,7 @@ export function OrdersList({
           )}
         </>
       )}
+
     </div>
   )
 }
