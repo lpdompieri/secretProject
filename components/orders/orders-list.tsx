@@ -1,17 +1,19 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState } from "react"
+import { cn } from "@/lib/utils"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Loader2 } from "lucide-react"
-import { cn } from "@/lib/utils"
-import { listarPedidos } from "@/services/orders-service"
-import { useEmpresa } from "@/contexts/empresa-context"
-import type { Order } from "@/types/order"
+import { OrdersList as OrdersListOriginal } from "./orders-list-original"
 
-// ============================================================
-// MOCK CONFIG
-// ============================================================
+// 👆 IMPORTANTE:
+// Renomeie seu arquivo original para:
+// components/orders/orders-list-original.tsx
+// (sem alterar NADA dentro dele)
+
+type TabMode = "pedidos" | "pendencias"
+type StepMode = "list" | "processing" | "success"
 
 const MOCK_FILIAIS = [
   { id: "1", nome: "Filial Centro" },
@@ -27,45 +29,11 @@ const MOCK_PENDENCIAS = [
   { pedido: "2024009", nota: "5567", valor: 200, data: "07/02/2026", status: "PENDENTE" },
 ]
 
-// ============================================================
-
-type TabMode = "pedidos" | "pendencias"
-type StepMode = "list" | "processing" | "success"
-
-export function OrdersList() {
-  const { empresaAtiva } = useEmpresa()
-
+export function OrdersList(props: any) {
   const [tab, setTab] = useState<TabMode>("pedidos")
   const [step, setStep] = useState<StepMode>("list")
-  const [orders, setOrders] = useState<Order[]>([])
-  const [isLoading, setIsLoading] = useState(true)
-
-  const [filialSelecionada, setFilialSelecionada] = useState<string | null>(null)
+  const [filialSelecionada, setFilialSelecionada] = useState<string>("")
   const [pendencias, setPendencias] = useState(MOCK_PENDENCIAS)
-
-  // ==========================================================
-  // LOAD PEDIDOS
-  // ==========================================================
-
-  const loadOrders = useCallback(async () => {
-    setIsLoading(true)
-    try {
-      const response = await listarPedidos()
-      if (response.success) {
-        setOrders(response.data)
-      }
-    } finally {
-      setIsLoading(false)
-    }
-  }, [])
-
-  useEffect(() => {
-    loadOrders()
-  }, [loadOrders, empresaAtiva])
-
-  // ==========================================================
-  // PROCESSAMENTO
-  // ==========================================================
 
   async function processIntegracao() {
     setStep("processing")
@@ -117,10 +85,6 @@ export function OrdersList() {
     )
   }
 
-  // ==========================================================
-  // RENDER NORMAL
-  // ==========================================================
-
   return (
     <div className="space-y-6 relative">
 
@@ -128,71 +92,33 @@ export function OrdersList() {
       <div className="flex gap-6 border-b">
         <button
           onClick={() => setTab("pedidos")}
-          className={cn("pb-2 text-sm",
-            tab === "pedidos" && "border-b-2 border-primary font-semibold")}
+          className={cn(
+            "pb-2 text-sm",
+            tab === "pedidos" && "border-b-2 border-primary font-semibold"
+          )}
         >
           Pedidos
         </button>
 
         <button
           onClick={() => setTab("pendencias")}
-          className={cn("pb-2 text-sm",
-            tab === "pendencias" && "border-b-2 border-primary font-semibold")}
+          className={cn(
+            "pb-2 text-sm",
+            tab === "pendencias" && "border-b-2 border-primary font-semibold"
+          )}
         >
           Pendências - NFE
         </button>
       </div>
 
       {/* ======================================================
-         ABA PEDIDOS RESTAURADA
+         ABA PEDIDOS - 100% ORIGINAL
       ====================================================== */}
 
-      {tab === "pedidos" && (
-        <Card>
-          <CardContent className="p-0">
-            {isLoading ? (
-              <div className="text-center py-12">
-                <Loader2 className="h-6 w-6 animate-spin mx-auto" />
-              </div>
-            ) : (
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b bg-muted/50">
-                    <th className="p-3 text-left">Pedido</th>
-                    <th className="p-3 text-left">Cliente</th>
-                    <th className="p-3 text-left">Valor</th>
-                    <th className="p-3 text-left">Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {orders.map((order) => (
-                    <tr key={order.id} className="border-b">
-                      <td className="p-3 font-medium">
-                        {order.numeroPedido}
-                      </td>
-                      <td className="p-3">
-                        {order.cliente.nome}
-                      </td>
-                      <td className="p-3">
-                        {order.valorTotal.toLocaleString("pt-BR", {
-                          style: "currency",
-                          currency: "BRL",
-                        })}
-                      </td>
-                      <td className="p-3">
-                        {order.status}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </CardContent>
-        </Card>
-      )}
+      {tab === "pedidos" && <OrdersListOriginal {...props} />}
 
       {/* ======================================================
-         ABA PENDÊNCIAS PADRONIZADA
+         ABA PENDÊNCIAS
       ====================================================== */}
 
       {tab === "pendencias" && (
@@ -200,9 +126,10 @@ export function OrdersList() {
           <Card>
             <CardContent className="p-4 flex items-center gap-4">
               <span className="font-medium text-sm">Filial:</span>
+
               <select
                 className="border rounded px-3 py-2 text-sm"
-                value={filialSelecionada ?? ""}
+                value={filialSelecionada}
                 onChange={(e) => setFilialSelecionada(e.target.value)}
               >
                 <option value="">Selecione</option>
@@ -216,37 +143,39 @@ export function OrdersList() {
           {filialSelecionada && (
             <Card>
               <CardContent className="p-0">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b bg-muted/50">
-                      <th className="p-3 text-left">Pedido</th>
-                      <th className="p-3 text-left">Nota Fiscal</th>
-                      <th className="p-3 text-left">Valor</th>
-                      <th className="p-3 text-left">Data Emissão</th>
-                      <th className="p-3 text-left">Situação</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {pendencias.map((p, i) => (
-                      <tr key={i} className="border-b">
-                        <td className="p-3">{p.pedido}</td>
-                        <td className="p-3">{p.nota}</td>
-                        <td className="p-3">
-                          {p.valor.toLocaleString("pt-BR", {
-                            style: "currency",
-                            currency: "BRL"
-                          })}
-                        </td>
-                        <td className="p-3">{p.data}</td>
-                        <td className="p-3">
-                          {p.status === "PENDENTE"
-                            ? "Pendente"
-                            : "Em processamento"}
-                        </td>
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b bg-muted/50">
+                        <th className="text-left p-4">Pedido</th>
+                        <th className="text-left p-4">Nota Fiscal</th>
+                        <th className="text-left p-4">Valor</th>
+                        <th className="text-left p-4">Data Emissão</th>
+                        <th className="text-left p-4">Situação</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {pendencias.map((p, i) => (
+                        <tr key={i} className="border-b hover:bg-muted/30">
+                          <td className="p-4 font-medium">{p.pedido}</td>
+                          <td className="p-4">{p.nota}</td>
+                          <td className="p-4">
+                            {p.valor.toLocaleString("pt-BR", {
+                              style: "currency",
+                              currency: "BRL",
+                            })}
+                          </td>
+                          <td className="p-4">{p.data}</td>
+                          <td className="p-4">
+                            {p.status === "PENDENTE"
+                              ? "Pendente"
+                              : "Em processamento"}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </CardContent>
             </Card>
           )}
