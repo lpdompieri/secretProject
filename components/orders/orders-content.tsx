@@ -16,7 +16,8 @@
  */
 
 import { useState, useCallback } from "react"
-import OrdersList from "./orders-list"
+import { OrdersList } from "./orders-list"
+import { OrdersPendencias } from "./orders-pendencias"
 import { OrderReceipt } from "./order-receipt"
 import { OrderDetails } from "./order-details"
 import { ResendPaymentModal } from "./resend-payment-modal"
