@@ -2,17 +2,15 @@
 
 /**
  * =============================================================================
- * COMPONENTE - LISTAGEM DE PEDIDOS
- * =============================================================================
- * 
- * Responsabilidade: Exibir lista de pedidos com acoes por status
+ * LISTAGEM DE PEDIDOS - ENTERPRISE INTERMEDIÁRIO
  * =============================================================================
  */
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useMemo } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Checkbox } from "@/components/ui/checkbox"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -38,8 +36,6 @@ import type { Order, OrderStatus } from "@/types/order"
 import { ORDER_STATUS_LABELS, ORDER_STATUS_COLORS } from "@/types/order"
 
 // =============================================================================
-// TIPOS
-// =============================================================================
 
 interface OrdersListProps {
   onViewReceipt: (order: Order) => void
@@ -49,7 +45,7 @@ interface OrdersListProps {
 }
 
 // =============================================================================
-// COMPONENTE BADGE DE STATUS
+// STATUS BADGE
 // =============================================================================
 
 function StatusBadge({ status }: { status: OrderStatus }) {
@@ -81,13 +77,18 @@ export function OrdersList({
   onResendPayment,
 }: OrdersListProps) {
   const { empresaAtiva } = useEmpresa()
+
   const [orders, setOrders] = useState<Order[]>([])
   const [filteredOrders, setFilteredOrders] = useState<Order[]>([])
+  const [selected, setSelected] = useState<string[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState<OrderStatus | "TODOS">("TODOS")
 
-  // Carregar pedidos
+  // ==============================
+  // LOAD
+  // ==============================
+
   const loadOrders = useCallback(async () => {
     setIsLoading(true)
     try {
@@ -107,21 +108,23 @@ export function OrdersList({
     loadOrders()
   }, [loadOrders, empresaAtiva])
 
-  // Filtrar pedidos
+  // ==============================
+  // FILTROS
+  // ==============================
+
   useEffect(() => {
     let filtered = orders
 
-    // Filtro por empresa ativa (header)
     if (empresaAtiva && empresaAtiva !== "TODAS") {
-      filtered = filtered.filter(order => order.loja.empresaCodigo === empresaAtiva)
+      filtered = filtered.filter(
+        order => order.loja.empresaCodigo === empresaAtiva
+      )
     }
 
-    // Filtro por status
     if (statusFilter !== "TODOS") {
       filtered = filtered.filter(order => order.status === statusFilter)
     }
 
-    // Filtro por busca
     if (searchTerm) {
       const term = searchTerm.toLowerCase()
       filtered = filtered.filter(
@@ -134,7 +137,36 @@ export function OrdersList({
     setFilteredOrders(filtered)
   }, [orders, statusFilter, searchTerm, empresaAtiva])
 
-  // Renderizar acoes baseadas no status
+  // ==============================
+  // KPIs
+  // ==============================
+
+  const totalPedidos = filteredOrders.length
+
+  const totalValor = useMemo(() => {
+    return filteredOrders.reduce((acc, o) => acc + o.valorTotal, 0)
+  }, [filteredOrders])
+
+  const totalPagos = filteredOrders.filter(o => o.status === "PAGO").length
+
+  // ==============================
+  // SELEÇÃO
+  // ==============================
+
+  const toggleSelect = (id: string) => {
+    setSelected(prev =>
+      prev.includes(id)
+        ? prev.filter(i => i !== id)
+        : [...prev, id]
+    )
+  }
+
+  const clearSelection = () => setSelected([])
+
+  // ==============================
+  // ACTIONS
+  // ==============================
+
   function renderActions(order: Order) {
     const status = order.status
 
@@ -143,17 +175,14 @@ export function OrdersList({
         <DropdownMenuTrigger asChild>
           <Button variant="ghost" size="icon" className="h-8 w-8">
             <MoreVertical className="h-4 w-4" />
-            <span className="sr-only">Acoes do pedido</span>
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-48">
-          {/* Detalhes - sempre disponivel */}
           <DropdownMenuItem onClick={() => onViewDetails(order)}>
             <Eye className="h-4 w-4 mr-2" />
-            Detalhes do Pedido
+            Detalhes
           </DropdownMenuItem>
 
-          {/* PAGO ou FATURADO */}
           {(status === "PAGO" || status === "FATURADO") && (
             <>
               <DropdownMenuItem onClick={() => onResendPayment(order)}>
@@ -162,24 +191,15 @@ export function OrdersList({
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => onViewReceipt(order)}>
                 <FileText className="h-4 w-4 mr-2" />
-                Visualizar Comprovante
+                Comprovante
               </DropdownMenuItem>
             </>
           )}
 
-          {/* CANCELADO */}
-          {status === "CANCELADO" && (
-            <DropdownMenuItem onClick={() => onViewReceipt(order)}>
-              <FileText className="h-4 w-4 mr-2" />
-              Visualizar Comprovante
-            </DropdownMenuItem>
-          )}
-
-          {/* PAGO - pode enviar NF */}
           {status === "PAGO" && (
             <DropdownMenuItem onClick={() => onSendInvoice(order)}>
               <Upload className="h-4 w-4 mr-2" />
-              Enviar Nota Fiscal
+              Enviar NF
             </DropdownMenuItem>
           )}
         </DropdownMenuContent>
@@ -187,216 +207,182 @@ export function OrdersList({
     )
   }
 
-  // Loading state
+  // ==============================
+  // LOADING
+  // ==============================
+
   if (isLoading) {
     return (
-      <div className="flex flex-col items-center justify-center py-16">
+      <div className="flex flex-col items-center py-16">
         <Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />
         <p className="text-muted-foreground">Carregando pedidos...</p>
       </div>
     )
   }
 
+  // =============================================================================
+  // RENDER
+  // =============================================================================
+
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <header className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+
+      {/* HEADER */}
+      <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Pedidos</h1>
-          <p className="text-muted-foreground mt-1">
-            {empresaAtiva === "TODAS"
-              ? "Exibindo pedidos de todas as empresas"
-              : `Filtrando pedidos da empresa ${empresaAtiva}`}
+          <h2 className="text-xl font-bold">Central de Pedidos</h2>
+          <p className="text-sm text-muted-foreground">
+            Gestão operacional e financeira de pedidos
           </p>
         </div>
         <Button variant="outline" size="sm" onClick={loadOrders}>
           <RefreshCw className="h-4 w-4 mr-2" />
           Atualizar
         </Button>
-      </header>
+      </div>
 
-      {/* Filtros */}
-      <Card>
-        <CardContent className="p-4">
-          <div className="flex flex-col sm:flex-row gap-4">
-            {/* Busca */}
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Buscar por numero ou loja..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
-              />
-            </div>
-
-            {/* Filtro de status */}
-            <div className="flex gap-2 flex-wrap">
-              <Button
-                variant={statusFilter === "TODOS" ? "default" : "outline"}
-                size="sm"
-                onClick={() => setStatusFilter("TODOS")}
-              >
-                Todos
-              </Button>
-              <Button
-                variant={statusFilter === "PAGO" ? "default" : "outline"}
-                size="sm"
-                onClick={() => setStatusFilter("PAGO")}
-              >
-                Pagos
-              </Button>
-              <Button
-                variant={statusFilter === "FATURADO" ? "default" : "outline"}
-                size="sm"
-                onClick={() => setStatusFilter("FATURADO")}
-              >
-                Faturados
-              </Button>
-              <Button
-                variant={statusFilter === "EM_PROCESSO_PAGAMENTO" ? "default" : "outline"}
-                size="sm"
-                onClick={() => setStatusFilter("EM_PROCESSO_PAGAMENTO")}
-              >
-                Em Processo
-              </Button>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Lista de Pedidos - Desktop */}
-      <div className="hidden md:block">
+      {/* KPIs */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <Card>
-          <CardContent className="p-0">
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b bg-muted/50">
-                    <th className="text-left p-4 font-medium text-muted-foreground">
-                      Pedido
-                    </th>
-                    <th className="text-left p-4 font-medium text-muted-foreground">
-                      Loja
-                    </th>
-                    <th className="text-left p-4 font-medium text-muted-foreground">
-                      Valor
-                    </th>
-                    <th className="text-left p-4 font-medium text-muted-foreground">
-                      Status
-                    </th>
-                    <th className="text-right p-4 font-medium text-muted-foreground">
-                      Acoes
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredOrders.length === 0 ? (
-                    <tr>
-                      <td colSpan={5} className="p-8 text-center text-muted-foreground">
-                        Nenhum pedido encontrado
-                      </td>
-                    </tr>
-                  ) : (
-                    filteredOrders.map((order) => (
-                      <tr
-                        key={order.id}
-                        className="border-b last:border-0 hover:bg-muted/30 transition-colors"
-                      >
-                        <td className="p-4">
-                          <div className="flex items-center gap-3">
-                            <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                              <Package className="h-5 w-5 text-primary" />
-                            </div>
-                            <div>
-                              <p className="font-medium">#{order.numeroPedido}</p>
-                              <p className="text-sm text-muted-foreground">
-                                {new Date(order.dataEmissao).toLocaleDateString("pt-BR")}
-                              </p>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="p-4">
-                          <div className="flex items-center gap-2">
-                            <Store className="h-4 w-4 text-muted-foreground" />
-                            <span>{order.loja.nome}</span>
-                          </div>
-                        </td>
-                        <td className="p-4">
-                          <span className="font-semibold">
-                            {order.valorTotal.toLocaleString("pt-BR", {
-                              style: "currency",
-                              currency: "BRL",
-                            })}
-                          </span>
-                        </td>
-                        <td className="p-4">
-                          <StatusBadge status={order.status} />
-                        </td>
-                        <td className="p-4 text-right">
-                          {renderActions(order)}
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
+          <CardContent className="p-4">
+            <p className="text-sm text-muted-foreground">Pedidos</p>
+            <p className="text-2xl font-bold">{totalPedidos}</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-4">
+            <p className="text-sm text-muted-foreground">Valor Total</p>
+            <p className="text-2xl font-bold">
+              {totalValor.toLocaleString("pt-BR", {
+                style: "currency",
+                currency: "BRL",
+              })}
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-4">
+            <p className="text-sm text-muted-foreground">Pagos</p>
+            <p className="text-2xl font-bold">{totalPagos}</p>
           </CardContent>
         </Card>
       </div>
 
-      {/* Lista de Pedidos - Mobile (Cards) */}
-      <div className="md:hidden space-y-4">
-        {filteredOrders.length === 0 ? (
-          <Card>
-            <CardContent className="p-8 text-center text-muted-foreground">
-              Nenhum pedido encontrado
-            </CardContent>
-          </Card>
-        ) : (
-          filteredOrders.map((order) => (
-            <Card key={order.id} className="overflow-hidden">
-              <CardContent className="p-4">
-                <div className="flex items-start justify-between mb-3">
-                  <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                      <Package className="h-5 w-5 text-primary" />
-                    </div>
-                    <div>
-                      <p className="font-medium">#{order.numeroPedido}</p>
-                      <p className="text-sm text-muted-foreground">
-                        {new Date(order.dataEmissao).toLocaleDateString("pt-BR")}
-                      </p>
-                    </div>
-                  </div>
-                  {renderActions(order)}
-                </div>
+      {/* FILTROS */}
+      <Card>
+        <CardContent className="p-4 flex flex-col sm:flex-row gap-4">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Buscar por número ou loja..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10"
+            />
+          </div>
 
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2 text-sm">
-                    <Store className="h-4 w-4 text-muted-foreground" />
-                    <span>{order.loja.nome}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="font-semibold text-lg">
+          <div className="flex gap-2 flex-wrap">
+            {["TODOS", "PAGO", "FATURADO", "EM_PROCESSO_PAGAMENTO"].map(status => (
+              <Button
+                key={status}
+                size="sm"
+                variant={statusFilter === status ? "default" : "outline"}
+                onClick={() => setStatusFilter(status as any)}
+              >
+                {status}
+              </Button>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* ACTION BAR */}
+      {selected.length > 0 && (
+        <Card className="border-primary">
+          <CardContent className="p-4 flex justify-between items-center">
+            <span className="text-sm">
+              {selected.length} pedido(s) selecionado(s)
+            </span>
+            <Button variant="outline" size="sm" onClick={clearSelection}>
+              Limpar seleção
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* TABELA DESKTOP */}
+      <div className="hidden md:block">
+        <Card>
+          <CardContent className="p-0">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b bg-muted/50">
+                  <th className="p-4"></th>
+                  <th className="p-4 text-left">Pedido</th>
+                  <th className="p-4 text-left">Loja</th>
+                  <th className="p-4 text-left">Valor</th>
+                  <th className="p-4 text-left">Status</th>
+                  <th className="p-4 text-right">Ações</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredOrders.map(order => (
+                  <tr key={order.id} className="border-b hover:bg-muted/30">
+                    <td className="p-4">
+                      <Checkbox
+                        checked={selected.includes(order.id)}
+                        onCheckedChange={() => toggleSelect(order.id)}
+                      />
+                    </td>
+
+                    <td className="p-4">
+                      <div className="flex items-center gap-3">
+                        <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                          <Package className="h-5 w-5 text-primary" />
+                        </div>
+                        <div>
+                          <p className="font-medium">#{order.numeroPedido}</p>
+                          <p className="text-sm text-muted-foreground">
+                            {new Date(order.dataEmissao).toLocaleDateString("pt-BR")}
+                          </p>
+                        </div>
+                      </div>
+                    </td>
+
+                    <td className="p-4">
+                      <div className="flex items-center gap-2">
+                        <Store className="h-4 w-4 text-muted-foreground" />
+                        {order.loja.nome}
+                      </div>
+                    </td>
+
+                    <td className="p-4 font-semibold">
                       {order.valorTotal.toLocaleString("pt-BR", {
                         style: "currency",
                         currency: "BRL",
                       })}
-                    </span>
-                    <StatusBadge status={order.status} />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))
-        )}
+                    </td>
+
+                    <td className="p-4">
+                      <StatusBadge status={order.status} />
+                    </td>
+
+                    <td className="p-4 text-right">
+                      {renderActions(order)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </CardContent>
+        </Card>
       </div>
 
-      {/* Contador */}
+      {/* CONTADOR */}
       <p className="text-sm text-muted-foreground text-center">
-        Exibindo {filteredOrders.length} de {orders.length} pedidos
+        Exibindo {filteredOrders.length} pedidos
       </p>
     </div>
   )
