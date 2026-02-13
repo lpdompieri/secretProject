@@ -1,18 +1,22 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useMemo } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Store, Package } from "lucide-react"
+import { Checkbox } from "@/components/ui/checkbox"
+import { Store, Package, Loader2, AlertCircle } from "lucide-react"
+
+type Status = "PENDENTE" | "EM_PROCESSAMENTO" | "INTEGRADO" | "ERRO"
 
 type Pendencia = {
+  id: string
   pedido: string
   nota: string
   chaveNfe: string
   valor: number
   data: string
-  situacao: "PENDENTE" | "EM_PROCESSAMENTO"
+  situacao: Status
 }
 
 type Filial = {
@@ -27,6 +31,7 @@ const MOCK_FILIAIS: Filial[] = [
 
 const MOCK_PENDENCIAS: Pendencia[] = [
   {
+    id: "1",
     pedido: "2024007",
     nota: "1122",
     chaveNfe: "92348342384324623470745",
@@ -35,74 +40,94 @@ const MOCK_PENDENCIAS: Pendencia[] = [
     situacao: "PENDENTE",
   },
   {
+    id: "2",
     pedido: "2024008",
     nota: "2233",
     chaveNfe: "83476587658765876587654",
     valor: 200,
     data: "02/02/2026",
-    situacao: "PENDENTE",
+    situacao: "EM_PROCESSAMENTO",
   },
 ]
 
 export function OrdersPendencias() {
   const [filialSelecionada, setFilialSelecionada] = useState<string | null>(null)
   const [pendencias, setPendencias] = useState<Pendencia[]>([])
-  const [processando, setProcessando] = useState(false)
-  const [etapa, setEtapa] = useState(0)
+  const [selecionadas, setSelecionadas] = useState<string[]>([])
+  const [filtroStatus, setFiltroStatus] = useState<Status | "TODOS">("TODOS")
 
   const carregar = () => setPendencias(MOCK_PENDENCIAS)
 
-  const delay = (ms: number) => new Promise(res => setTimeout(res, ms))
+  // ==============================
+  // MÉTRICAS
+  // ==============================
 
-  const integrar = async () => {
-    setProcessando(true)
-    setEtapa(1)
-    await delay(2000)
-    setEtapa(2)
-    await delay(3000)
-    setEtapa(3)
-    await delay(2000)
-    setEtapa(4)
+  const totalPendentes = pendencias.filter(p => p.situacao === "PENDENTE").length
+  const totalProcessando = pendencias.filter(p => p.situacao === "EM_PROCESSAMENTO").length
+  const valorTotal = pendencias
+    .filter(p => p.situacao === "PENDENTE")
+    .reduce((acc, p) => acc + p.valor, 0)
+
+  const pendenciasFiltradas = useMemo(() => {
+    if (filtroStatus === "TODOS") return pendencias
+    return pendencias.filter(p => p.situacao === filtroStatus)
+  }, [pendencias, filtroStatus])
+
+  const toggleSelecionada = (id: string) => {
+    setSelecionadas(prev =>
+      prev.includes(id)
+        ? prev.filter(i => i !== id)
+        : [...prev, id]
+    )
   }
 
-  const finalizar = () => {
+  const integrarSelecionadas = () => {
     setPendencias(prev =>
-      prev.map(p => ({ ...p, situacao: "EM_PROCESSAMENTO" }))
+      prev.map(p =>
+        selecionadas.includes(p.id)
+          ? { ...p, situacao: "EM_PROCESSAMENTO" }
+          : p
+      )
     )
-    setProcessando(false)
-    setEtapa(0)
+    setSelecionadas([])
   }
 
-  if (processando) {
-    return (
-      <Card>
-        <CardContent className="p-8 text-center space-y-6">
-          <h2 className="text-xl font-bold">
-            Envio de Notas Fiscais para o BNDES
-          </h2>
-
-          {etapa === 1 && <p>Consultando notas fiscais...</p>}
-          {etapa === 2 && <p>Preparando envio das notas...</p>}
-          {etapa === 3 && <p>Agendamento feito com sucesso...</p>}
-          {etapa === 4 && (
-            <>
-              <p className="font-semibold text-green-600">
-                Processo finalizado com sucesso.
-              </p>
-              <Button onClick={finalizar}>OK</Button>
-            </>
-          )}
-        </CardContent>
-      </Card>
-    )
+  const renderStatus = (status: Status) => {
+    switch (status) {
+      case "PENDENTE":
+        return <Badge variant="secondary">Pendente</Badge>
+      case "EM_PROCESSAMENTO":
+        return (
+          <Badge variant="default" className="gap-1 flex items-center">
+            <Loader2 className="h-3 w-3 animate-spin" />
+            Processando
+          </Badge>
+        )
+      case "INTEGRADO":
+        return <Badge className="bg-green-600">Integrado</Badge>
+      case "ERRO":
+        return (
+          <Badge variant="destructive" className="gap-1 flex items-center">
+            <AlertCircle className="h-3 w-3" />
+            Erro
+          </Badge>
+        )
+    }
   }
 
   return (
     <div className="space-y-6">
 
-      {/* SELETOR FILIAL */}
-      <Card>
-        <CardContent className="p-4 flex items-center gap-4">
+      {/* HEADER E FILIAL */}
+      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+        <div>
+          <h2 className="text-xl font-bold">Central de Integração Fiscal</h2>
+          <p className="text-sm text-muted-foreground">
+            Gerencie o envio de notas fiscais ao BNDES
+          </p>
+        </div>
+
+        <div className="flex items-center gap-3">
           <Store className="h-4 w-4" />
           <select
             className="border rounded px-3 py-2 text-sm"
@@ -119,143 +144,117 @@ export function OrdersPendencias() {
               </option>
             ))}
           </select>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
       {filialSelecionada && (
         <>
-          {/* ===========================
-             DESKTOP - TABELA PADRONIZADA
-          ============================ */}
-          <div className="hidden md:block">
+          {/* KPIs */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <Card>
-              <CardContent className="p-0">
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b bg-muted/50">
-                      <th className="p-4 text-left">Pedido</th>
-                      <th className="p-4 text-left">Nota</th>
-                      <th className="p-4 text-left">Valor</th>
-                      <th className="p-4 text-left">Chave NFE</th>
-                      <th className="p-4 text-left">Situação</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {pendencias.map((p, i) => (
-                      <tr key={i} className="border-b last:border-0 hover:bg-muted/30">
-                        <td className="p-4">
-                          <div>
-                            <p className="font-medium">#{p.pedido}</p>
-                            <p className="text-sm text-muted-foreground">
-                              {p.data}
-                            </p>
-                          </div>
-                        </td>
-                        <td className="p-4">{p.nota}</td>
-                        <td className="p-4 font-semibold">
-                          {p.valor.toLocaleString("pt-BR", {
-                            style: "currency",
-                            currency: "BRL",
-                          })}
-                        </td>
-                        <td className="p-4">
-                          <div>
-                            <p className="text-xs text-muted-foreground">
-                              Chave NFE
-                            </p>
-                            <p className="text-sm font-mono break-all">
-                              {p.chaveNfe}
-                            </p>
-                          </div>
-                        </td>
-                        <td className="p-4">
-                          <Badge
-                            variant={
-                              p.situacao === "PENDENTE"
-                                ? "secondary"
-                                : "default"
-                            }
-                          >
-                            {p.situacao === "PENDENTE"
-                              ? "Pendente"
-                              : "Em processamento"}
-                          </Badge>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <CardContent className="p-4">
+                <p className="text-sm text-muted-foreground">Pendentes</p>
+                <p className="text-2xl font-bold">{totalPendentes}</p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="p-4">
+                <p className="text-sm text-muted-foreground">Processando</p>
+                <p className="text-2xl font-bold">{totalProcessando}</p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="p-4">
+                <p className="text-sm text-muted-foreground">Valor Pendente</p>
+                <p className="text-2xl font-bold">
+                  {valorTotal.toLocaleString("pt-BR", {
+                    style: "currency",
+                    currency: "BRL",
+                  })}
+                </p>
               </CardContent>
             </Card>
           </div>
 
-          {/* ===========================
-             MOBILE - PADRÃO IGUAL PEDIDOS
-          ============================ */}
-          <div className="md:hidden space-y-4">
-            {pendencias.map((p, i) => (
-              <Card key={i}>
-                <CardContent className="p-4">
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="flex items-center gap-3">
-                      <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                        <Package className="h-5 w-5 text-primary" />
-                      </div>
-                      <div>
-                        <p className="font-medium">#{p.pedido}</p>
-                        <p className="text-sm text-muted-foreground">
-                          {p.data}
-                        </p>
-                      </div>
-                    </div>
-                    <Badge
-                      variant={
-                        p.situacao === "PENDENTE"
-                          ? "secondary"
-                          : "default"
-                      }
-                    >
-                      {p.situacao === "PENDENTE"
-                        ? "Pendente"
-                        : "Em processamento"}
-                    </Badge>
-                  </div>
-
-                  <div className="space-y-2 text-sm">
-                    <div>
-                      <span className="text-muted-foreground">Nota:</span>{" "}
-                      {p.nota}
-                    </div>
-
-                    <div>
-                      <span className="text-muted-foreground">
-                        Chave NFE:
-                      </span>
-                      <p className="font-mono break-all">
-                        {p.chaveNfe}
-                      </p>
-                    </div>
-
-                    <div className="font-semibold text-lg">
-                      {p.valor.toLocaleString("pt-BR", {
-                        style: "currency",
-                        currency: "BRL",
-                      })}
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+          {/* FILTRO */}
+          <div className="flex gap-3">
+            {["TODOS", "PENDENTE", "EM_PROCESSAMENTO"].map(status => (
+              <Button
+                key={status}
+                size="sm"
+                variant={filtroStatus === status ? "default" : "outline"}
+                onClick={() => setFiltroStatus(status as any)}
+              >
+                {status}
+              </Button>
             ))}
           </div>
 
-          {/* BOTÃO FLUTUANTE */}
-          <Button
-            onClick={integrar}
-            disabled={!pendencias.some(p => p.situacao === "PENDENTE")}
-            className="fixed bottom-8 right-8 shadow-lg"
-          >
-            INTEGRAR NOTAS PENDENTES
-          </Button>
+          {/* ACTION BAR */}
+          {selecionadas.length > 0 && (
+            <Card className="border-primary">
+              <CardContent className="p-4 flex items-center justify-between">
+                <span className="text-sm">
+                  {selecionadas.length} nota(s) selecionada(s)
+                </span>
+                <Button onClick={integrarSelecionadas}>
+                  Integrar selecionadas
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* TABELA */}
+          <Card>
+            <CardContent className="p-0">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b bg-muted/50">
+                    <th className="p-4"></th>
+                    <th className="p-4 text-left">Pedido</th>
+                    <th className="p-4 text-left">Nota</th>
+                    <th className="p-4 text-left">Valor</th>
+                    <th className="p-4 text-left">Chave NFE</th>
+                    <th className="p-4 text-left">Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {pendenciasFiltradas.map(p => (
+                    <tr key={p.id} className="border-b hover:bg-muted/30">
+                      <td className="p-4">
+                        <Checkbox
+                          checked={selecionadas.includes(p.id)}
+                          onCheckedChange={() => toggleSelecionada(p.id)}
+                          disabled={p.situacao !== "PENDENTE"}
+                        />
+                      </td>
+                      <td className="p-4">
+                        <div>
+                          <p className="font-medium">#{p.pedido}</p>
+                          <p className="text-sm text-muted-foreground">
+                            {p.data}
+                          </p>
+                        </div>
+                      </td>
+                      <td className="p-4">{p.nota}</td>
+                      <td className="p-4 font-semibold">
+                        {p.valor.toLocaleString("pt-BR", {
+                          style: "currency",
+                          currency: "BRL",
+                        })}
+                      </td>
+                      <td className="p-4 font-mono text-sm break-all">
+                        {p.chaveNfe}
+                      </td>
+                      <td className="p-4">{renderStatus(p.situacao)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </CardContent>
+          </Card>
         </>
       )}
     </div>
