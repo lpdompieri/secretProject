@@ -1,34 +1,67 @@
 "use client"
 
-import { useState } from "react"
+import { useMemo, useState } from "react"
+import {
+  Search,
+  UserCircle,
+  Mail,
+  Building2,
+  ShieldCheck,
+  Phone,
+  Loader2,
+  ArrowLeft,
+  CheckCircle2,
+  Pencil,
+  Plus,
+  Users,
+  Shield,
+  UserCheck,
+} from "lucide-react"
+
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Search, UserCircle, Mail, Building2, ShieldCheck, Phone, Loader2, ArrowLeft, CheckCircle2, Pencil } from "lucide-react"
-import { MOCK_USERS, findUserByCpf, type MockUser } from "@/mocks/users"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+
+import { MOCK_USERS, type MockUser } from "@/mocks/users"
 import { MOCK_PERFIS } from "@/mocks/perfis"
 import { useAuth } from "@/contexts/auth-context"
 import { useEmpresa } from "@/contexts/empresa-context"
 
-type UsuarioView = "search" | "details" | "register"
+type UsuarioView = "dashboard" | "search" | "details" | "register"
 
 function formatCpf(value: string): string {
   const digits = value.replace(/\D/g, "").slice(0, 11)
   if (digits.length <= 3) return digits
   if (digits.length <= 6) return `${digits.slice(0, 3)}.${digits.slice(3)}`
-  if (digits.length <= 9) return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6)}`
-  return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6, 9)}-${digits.slice(9)}`
+  if (digits.length <= 9)
+    return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6)}`
+  return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(
+    6,
+    9
+  )}-${digits.slice(9)}`
 }
 
-function getPerfilColor(perfil: string): "default" | "secondary" | "destructive" | "outline" {
+function getPerfilVariant(
+  perfil: string
+): "default" | "secondary" | "destructive" | "outline" {
   switch (perfil) {
-    case "Master": return "destructive"
-    case "Gerente": return "default"
-    case "Vendedor": return "secondary"
-    default: return "outline"
+    case "Master":
+      return "destructive"
+    case "Gerente":
+      return "default"
+    case "Vendedor":
+      return "secondary"
+    default:
+      return "outline"
   }
 }
 
@@ -36,400 +69,278 @@ export function GerenciarUsuariosContent() {
   const { isMaster } = useAuth()
   const { empresas } = useEmpresa()
 
+  const [view, setView] = useState<UsuarioView>("dashboard")
   const [cpfInput, setCpfInput] = useState("")
-  const [view, setView] = useState<UsuarioView>("search")
   const [isLoading, setIsLoading] = useState(false)
   const [usuario, setUsuario] = useState<MockUser | null>(null)
-  const [error, setError] = useState<string | null>(null)
+  const [searchFilter, setSearchFilter] = useState("")
 
-  // Usuarios em memoria para edicao
   const [localUsers, setLocalUsers] = useState<MockUser[]>([...MOCK_USERS])
 
-  // Modo de edicao
-  const [isEditing, setIsEditing] = useState(false)
-  const [editData, setEditData] = useState({
-    name: "",
-    email: "",
-    telefone: "",
-    empresa: "",
-    perfil: "",
-  })
+  // ================= KPI =================
 
-  // Form de cadastro
-  const [formData, setFormData] = useState({
-    cpf: "",
-    nome: "",
-    email: "",
-    telefone: "",
-    empresa: "",
-    perfil: "",
-  })
-  const [saveSuccess, setSaveSuccess] = useState(false)
+  const totalUsers = localUsers.length
+  const totalMasters = localUsers.filter(u => u.perfil === "Master").length
+  const totalGerentes = localUsers.filter(u => u.perfil === "Gerente").length
+  const totalVendedores = localUsers.filter(u => u.perfil === "Vendedor").length
 
-  // Empresas disponiveis: Master ve todas, usuario comum ve apenas a sua
-  const empresasDisponiveis = isMaster
-    ? empresas
-    : empresas.filter((e) => e.codigo === usuario?.empresa)
+  // ================= FILTER =================
 
-  async function handleSearch() {
+  const filteredUsers = useMemo(() => {
+    return localUsers.filter((u) =>
+      u.name.toLowerCase().includes(searchFilter.toLowerCase()) ||
+      u.email.toLowerCase().includes(searchFilter.toLowerCase())
+    )
+  }, [searchFilter, localUsers])
+
+  // ================= SEARCH CPF =================
+
+  async function handleSearchCpf() {
     const cleanCpf = cpfInput.replace(/\D/g, "")
-    if (cleanCpf.length !== 11) {
-      setError("CPF deve conter 11 digitos")
-      return
-    }
-    setError(null)
-    setIsLoading(true)
-    await new Promise((resolve) => setTimeout(resolve, 800))
+    if (cleanCpf.length !== 11) return
 
-    const found = localUsers.find((u) => u.cpf === cleanCpf) || null
+    setIsLoading(true)
+    await new Promise(resolve => setTimeout(resolve, 600))
+
+    const found = localUsers.find(u => u.cpf === cleanCpf) || null
     setIsLoading(false)
 
     if (found) {
       setUsuario(found)
-      setIsEditing(false)
       setView("details")
     } else {
-      setFormData({
-        cpf: cpfInput,
-        nome: "",
-        email: "",
-        telefone: "",
-        empresa: "",
-        perfil: "",
-      })
       setView("register")
     }
   }
 
   function handleBack() {
-    setView("search")
+    setView("dashboard")
     setUsuario(null)
     setCpfInput("")
-    setError(null)
-    setSaveSuccess(false)
-    setIsEditing(false)
   }
 
-  function startEdit() {
-    if (!usuario) return
-    setEditData({
-      name: usuario.name,
-      email: usuario.email,
-      telefone: usuario.telefone,
-      empresa: usuario.empresa,
-      perfil: usuario.perfil,
-    })
-    setIsEditing(true)
-  }
+  // ================= DASHBOARD =================
 
-  async function handleSaveEdit() {
-    if (!usuario) return
-    setIsLoading(true)
-    await new Promise((resolve) => setTimeout(resolve, 800))
-
-    // Atualizar no array local
-    const updated: MockUser = {
-      ...usuario,
-      name: editData.name,
-      email: editData.email,
-      telefone: editData.telefone,
-      empresa: editData.empresa,
-      perfil: editData.perfil as MockUser["perfil"],
-    }
-
-    setLocalUsers((prev) => prev.map((u) => (u.cpf === usuario.cpf ? updated : u)))
-    setUsuario(updated)
-    setIsEditing(false)
-    setIsLoading(false)
-    setSaveSuccess(true)
-    setTimeout(() => setSaveSuccess(false), 3000)
-  }
-
-  async function handleSaveNew() {
-    setIsLoading(true)
-    await new Promise((resolve) => setTimeout(resolve, 800))
-
-    const newUser: MockUser = {
-      cpf: formData.cpf.replace(/\D/g, ""),
-      name: formData.nome,
-      email: formData.email,
-      telefone: formData.telefone,
-      password: "123456",
-      empresa: formData.empresa,
-      perfil: (formData.perfil as MockUser["perfil"]) || "Vendedor",
-    }
-
-    setLocalUsers((prev) => [...prev, newUser])
-    setIsLoading(false)
-    setSaveSuccess(true)
-    setTimeout(() => setSaveSuccess(false), 3000)
-  }
-
-  // ========== SEARCH VIEW ==========
-  if (view === "search") {
+  if (view === "dashboard") {
     return (
-      <div className="space-y-6">
-        <header>
-          <h1 className="text-3xl font-bold text-foreground text-balance">Gerenciar Usuarios</h1>
-          <p className="text-muted-foreground mt-1">Consulte um usuario pelo CPF</p>
-        </header>
+      <div className="space-y-8">
 
-        <Card className="max-w-xl border-0 shadow-md">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-foreground">
-              <Search className="h-5 w-5 text-secondary" aria-hidden="true" />
-              Consultar Usuario
-            </CardTitle>
-            <CardDescription>Informe o CPF para consultar os dados do usuario</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="cpf" className="text-foreground font-medium">CPF</Label>
-                <Input
-                  id="cpf"
-                  placeholder="000.000.000-00"
-                  value={cpfInput}
-                  onChange={(e) => { setCpfInput(formatCpf(e.target.value)); setError(null) }}
-                  onKeyDown={(e) => { if (e.key === "Enter") handleSearch() }}
-                  className="h-11"
-                  disabled={isLoading}
-                />
-              </div>
-              {error && <p className="text-sm text-destructive">{error}</p>}
-              <Button
-                onClick={handleSearch}
-                disabled={isLoading || cpfInput.replace(/\D/g, "").length < 11}
-                className="w-full h-11 bg-primary hover:bg-primary/90 text-primary-foreground"
-              >
-                {isLoading ? (
-                  <><Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />Consultando...</>
-                ) : (
-                  <><Search className="mr-2 h-4 w-4" aria-hidden="true" />Consultar Usuario</>
-                )}
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    )
-  }
-
-  // ========== DETAILS VIEW ==========
-  if (view === "details" && usuario) {
-    return (
-      <div className="space-y-6">
-        <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={handleBack} aria-label="Voltar">
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-          <header className="flex-1">
-            <h1 className="text-3xl font-bold text-foreground text-balance">Dados do Usuario</h1>
-            <p className="text-muted-foreground mt-1">
-              {isEditing ? "Editando informacoes" : "Informacoes cadastradas"}
+        {/* HEADER + ACTION BAR */}
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-bold">Gestão de Usuários</h1>
+            <p className="text-muted-foreground">
+              Controle de acessos, perfis e permissões
             </p>
-          </header>
-          {!isEditing && (
-            <Button variant="outline" size="sm" onClick={startEdit}>
-              <Pencil className="h-4 w-4 mr-1.5" aria-hidden="true" />
-              Editar
+          </div>
+
+          <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
+            <Input
+              placeholder="Buscar por nome ou email..."
+              value={searchFilter}
+              onChange={(e) => setSearchFilter(e.target.value)}
+              className="h-10 w-full sm:w-64"
+            />
+            <Button
+              onClick={() => setView("search")}
+              className="h-10"
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Novo Usuário
             </Button>
-          )}
+          </div>
         </div>
 
-        <Card className="max-w-xl border-0 shadow-md">
-          <CardHeader>
-            <div className="flex items-center gap-4">
-              <div className="h-14 w-14 rounded-full bg-secondary/10 flex items-center justify-center">
-                <UserCircle className="h-8 w-8 text-secondary" aria-hidden="true" />
-              </div>
+        {/* KPI CARDS */}
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <Card>
+            <CardContent className="p-5 flex items-center justify-between">
               <div>
-                <CardTitle className="text-foreground">
-                  {isEditing ? editData.name : usuario.name}
-                </CardTitle>
-                <CardDescription>CPF: {formatCpf(usuario.cpf)}</CardDescription>
+                <p className="text-sm text-muted-foreground">Total</p>
+                <p className="text-2xl font-bold">{totalUsers}</p>
               </div>
-            </div>
+              <Users className="h-6 w-6 text-muted-foreground" />
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="p-5 flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">Masters</p>
+                <p className="text-2xl font-bold">{totalMasters}</p>
+              </div>
+              <Shield className="h-6 w-6 text-destructive" />
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="p-5 flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">Gerentes</p>
+                <p className="text-2xl font-bold">{totalGerentes}</p>
+              </div>
+              <UserCheck className="h-6 w-6 text-primary" />
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="p-5 flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">Vendedores</p>
+                <p className="text-2xl font-bold">{totalVendedores}</p>
+              </div>
+              <UserCircle className="h-6 w-6 text-secondary" />
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* LISTA */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Usuários Cadastrados</CardTitle>
+            <CardDescription>
+              Lista completa com status e perfil
+            </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
-            {isEditing ? (
-              // ===== MODO EDICAO =====
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="edit-name" className="text-foreground font-medium">Nome Completo</Label>
-                  <Input id="edit-name" value={editData.name} onChange={(e) => setEditData({ ...editData, name: e.target.value })} className="h-10" disabled={isLoading} />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="edit-email" className="text-foreground font-medium">E-mail</Label>
-                  <Input id="edit-email" type="email" value={editData.email} onChange={(e) => setEditData({ ...editData, email: e.target.value })} className="h-10" disabled={isLoading} />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="edit-telefone" className="text-foreground font-medium">Telefone</Label>
-                  <Input id="edit-telefone" value={editData.telefone} onChange={(e) => setEditData({ ...editData, telefone: e.target.value })} placeholder="(00) 00000-0000" className="h-10" disabled={isLoading} />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="edit-empresa" className="text-foreground font-medium">Empresa</Label>
-                  <Select value={editData.empresa} onValueChange={(v) => setEditData({ ...editData, empresa: v })}>
-                    <SelectTrigger id="edit-empresa" className="h-10"><SelectValue placeholder="Selecionar empresa" /></SelectTrigger>
-                    <SelectContent>
-                      {(isMaster ? empresas : empresasDisponiveis).map((emp) => (
-                        <SelectItem key={emp.codigo} value={emp.codigo}>
-                          {emp.codigo} - {emp.nome}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="edit-perfil" className="text-foreground font-medium">Perfil</Label>
-                  <Select value={editData.perfil} onValueChange={(v) => setEditData({ ...editData, perfil: v })}>
-                    <SelectTrigger id="edit-perfil" className="h-10"><SelectValue placeholder="Selecionar perfil" /></SelectTrigger>
-                    <SelectContent>
-                      {MOCK_PERFIS.map((p) => (
-                        <SelectItem key={p.nome} value={p.nome}>{p.nome}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+
+          <CardContent className="space-y-3">
+
+            {filteredUsers.map((u) => (
+              <div
+                key={u.cpf}
+                className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-4 border rounded-xl hover:bg-muted/40 transition"
+              >
+                <div>
+                  <p className="font-semibold">{u.name}</p>
+                  <p className="text-sm text-muted-foreground">{u.email}</p>
                 </div>
 
-                {saveSuccess && (
-                  <div className="flex items-center gap-2 p-3 text-sm text-secondary bg-secondary/10 border border-secondary/20 rounded-lg">
-                    <CheckCircle2 className="h-4 w-4 shrink-0" aria-hidden="true" />
-                    <span>Usuario atualizado com sucesso! (mock)</span>
-                  </div>
-                )}
+                <div className="flex items-center gap-3 mt-3 sm:mt-0">
+                  <Badge variant={getPerfilVariant(u.perfil)}>
+                    {u.perfil}
+                  </Badge>
 
-                <div className="flex gap-3">
-                  <Button variant="outline" onClick={() => setIsEditing(false)} disabled={isLoading} className="flex-1 h-10">
-                    Cancelar
-                  </Button>
-                  <Button onClick={handleSaveEdit} disabled={isLoading} className="flex-1 h-10 bg-primary hover:bg-primary/90 text-primary-foreground">
-                    {isLoading ? (
-                      <><Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />Salvando...</>
-                    ) : "Salvar Alteracoes"}
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      setUsuario(u)
+                      setView("details")
+                    }}
+                  >
+                    <Pencil className="h-4 w-4 mr-1" />
+                    Gerenciar
                   </Button>
                 </div>
               </div>
-            ) : (
-              // ===== MODO VISUALIZACAO =====
-              <>
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
-                    <Mail className="h-5 w-5 text-muted-foreground" aria-hidden="true" />
-                    <div>
-                      <p className="text-xs font-medium text-muted-foreground">E-mail</p>
-                      <p className="text-sm text-foreground">{usuario.email}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
-                    <Phone className="h-5 w-5 text-muted-foreground" aria-hidden="true" />
-                    <div>
-                      <p className="text-xs font-medium text-muted-foreground">Telefone</p>
-                      <p className="text-sm text-foreground">{usuario.telefone || "(nao informado)"}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
-                    <Building2 className="h-5 w-5 text-muted-foreground" aria-hidden="true" />
-                    <div>
-                      <p className="text-xs font-medium text-muted-foreground">Empresa</p>
-                      <p className="text-sm text-foreground">{usuario.empresa || "(nenhuma)"}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
-                    <ShieldCheck className="h-5 w-5 text-muted-foreground" aria-hidden="true" />
-                    <div>
-                      <p className="text-xs font-medium text-muted-foreground">Perfil</p>
-                      <Badge variant={getPerfilColor(usuario.perfil)} className="mt-1">{usuario.perfil}</Badge>
-                    </div>
-                  </div>
-                </div>
+            ))}
 
-                {saveSuccess && (
-                  <div className="flex items-center gap-2 p-3 text-sm text-secondary bg-secondary/10 border border-secondary/20 rounded-lg">
-                    <CheckCircle2 className="h-4 w-4 shrink-0" aria-hidden="true" />
-                    <span>Usuario atualizado com sucesso! (mock)</span>
-                  </div>
-                )}
-              </>
+            {filteredUsers.length === 0 && (
+              <div className="text-center py-8 text-muted-foreground">
+                Nenhum usuário encontrado
+              </div>
             )}
+
           </CardContent>
         </Card>
       </div>
     )
   }
 
-  // ========== REGISTER VIEW ==========
-  return (
-    <div className="space-y-6">
-      <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" onClick={handleBack} aria-label="Voltar">
-          <ArrowLeft className="h-5 w-5" />
-        </Button>
-        <header>
-          <h1 className="text-3xl font-bold text-foreground text-balance">Cadastrar Usuario</h1>
-          <p className="text-muted-foreground mt-1">CPF nao encontrado. Preencha os dados para cadastro.</p>
-        </header>
+  // ================= DETAILS =================
+
+  if (view === "details" && usuario) {
+    return (
+      <div className="space-y-6 max-w-2xl">
+
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="icon" onClick={handleBack}>
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+          <h1 className="text-2xl font-bold">Detalhes do Usuário</h1>
+        </div>
+
+        <Card>
+          <CardContent className="p-6 space-y-4">
+
+            <div className="flex items-center gap-4">
+              <UserCircle className="h-10 w-10 text-muted-foreground" />
+              <div>
+                <p className="font-semibold">{usuario.name}</p>
+                <p className="text-sm text-muted-foreground">
+                  CPF: {formatCpf(usuario.cpf)}
+                </p>
+              </div>
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Info label="Email" value={usuario.email} icon={<Mail className="h-4 w-4" />} />
+              <Info label="Telefone" value={usuario.telefone} icon={<Phone className="h-4 w-4" />} />
+              <Info label="Empresa" value={usuario.empresa} icon={<Building2 className="h-4 w-4" />} />
+              <div>
+                <p className="text-xs text-muted-foreground">Perfil</p>
+                <Badge variant={getPerfilVariant(usuario.perfil)}>
+                  {usuario.perfil}
+                </Badge>
+              </div>
+            </div>
+
+          </CardContent>
+        </Card>
       </div>
+    )
+  }
 
-      <Card className="max-w-xl border-0 shadow-md">
-        <CardContent className="pt-6 space-y-5">
-          <div className="space-y-2">
-            <Label htmlFor="reg-cpf" className="text-foreground font-medium">CPF</Label>
-            <Input id="reg-cpf" value={formData.cpf} onChange={(e) => setFormData({ ...formData, cpf: formatCpf(e.target.value) })} className="h-11" disabled={isLoading} />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="reg-nome" className="text-foreground font-medium">Nome Completo</Label>
-            <Input id="reg-nome" placeholder="Nome do usuario" value={formData.nome} onChange={(e) => setFormData({ ...formData, nome: e.target.value })} className="h-11" disabled={isLoading} />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="reg-email" className="text-foreground font-medium">E-mail</Label>
-            <Input id="reg-email" type="email" placeholder="usuario@email.com" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} className="h-11" disabled={isLoading} />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="reg-telefone" className="text-foreground font-medium">Telefone</Label>
-            <Input id="reg-telefone" placeholder="(00) 00000-0000" value={formData.telefone} onChange={(e) => setFormData({ ...formData, telefone: e.target.value })} className="h-11" disabled={isLoading} />
-          </div>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="reg-empresa" className="text-foreground font-medium">Empresa</Label>
-              <Select value={formData.empresa} onValueChange={(v) => setFormData({ ...formData, empresa: v })}>
-                <SelectTrigger id="reg-empresa" className="h-11"><SelectValue placeholder="Selecionar empresa" /></SelectTrigger>
-                <SelectContent>
-                  {(isMaster ? empresas : empresasDisponiveis).map((emp) => (
-                    <SelectItem key={emp.codigo} value={emp.codigo}>
-                      {emp.codigo} - {emp.nome}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="reg-perfil" className="text-foreground font-medium">Perfil</Label>
-              <Select value={formData.perfil} onValueChange={(v) => setFormData({ ...formData, perfil: v })}>
-                <SelectTrigger id="reg-perfil" className="h-11"><SelectValue placeholder="Selecionar perfil" /></SelectTrigger>
-                <SelectContent>
-                  {MOCK_PERFIS.map((p) => (
-                    <SelectItem key={p.nome} value={p.nome}>{p.nome}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
+  // ================= SEARCH CPF =================
 
-          {saveSuccess && (
-            <div className="flex items-center gap-2 p-3 text-sm text-secondary bg-secondary/10 border border-secondary/20 rounded-lg">
-              <CheckCircle2 className="h-4 w-4 shrink-0" aria-hidden="true" />
-              <span>Usuario cadastrado com sucesso! (mock)</span>
-            </div>
-          )}
+  return (
+    <div className="space-y-6 max-w-xl">
+      <Button variant="ghost" onClick={handleBack}>
+        <ArrowLeft className="h-4 w-4 mr-2" />
+        Voltar
+      </Button>
 
-          <Button onClick={handleSaveNew} disabled={isLoading} className="w-full h-11 bg-primary hover:bg-primary/90 text-primary-foreground">
+      <Card>
+        <CardHeader>
+          <CardTitle>Buscar por CPF</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <Input
+            placeholder="000.000.000-00"
+            value={cpfInput}
+            onChange={(e) => setCpfInput(formatCpf(e.target.value))}
+          />
+          <Button
+            onClick={handleSearchCpf}
+            disabled={isLoading}
+            className="w-full"
+          >
             {isLoading ? (
-              <><Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />Salvando...</>
-            ) : "Salvar Usuario"}
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Buscando...
+              </>
+            ) : (
+              <>
+                <Search className="mr-2 h-4 w-4" />
+                Buscar
+              </>
+            )}
           </Button>
         </CardContent>
       </Card>
+    </div>
+  )
+}
+
+function Info({ label, value, icon }: any) {
+  return (
+    <div className="flex items-center gap-2 p-3 bg-muted/40 rounded-lg">
+      {icon}
+      <div>
+        <p className="text-xs text-muted-foreground">{label}</p>
+        <p className="text-sm font-medium">{value || "—"}</p>
+      </div>
     </div>
   )
 }
