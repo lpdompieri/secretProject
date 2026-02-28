@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Building2, Users, Package, CreditCard, ClipboardList, X, LayoutDashboard, ChevronDown, UserCog, ShieldCheck } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { useAuth } from "@/contexts/auth-context"
 
 export type MenuSection = 
   | "cockpit" 
@@ -57,8 +58,17 @@ export function DashboardSidebar({
   activeSection, 
   onSectionChange 
 }: DashboardSidebarProps) {
+  const { isAdmin, can } = useAuth()
   const sidebarRef = useRef<HTMLElement>(null)
   const [openSubmenus, setOpenSubmenus] = useState<string[]>(["Usuarios"])
+
+  const visibleMenuItems = menuItems.filter((item) => {
+    if (item.section !== "produtos") {
+      return true
+    }
+
+    return isAdmin || can("finvia-bndes-catalog/product.read")
+  })
 
   // Fechar sidebar ao pressionar Escape
   useEffect(() => {
@@ -144,7 +154,7 @@ export function DashboardSidebar({
 
         <nav className="p-4">
           <ul className="space-y-1" role="list">
-            {menuItems.map((item) => {
+            {visibleMenuItems.map((item) => {
               // Item com submenu
               if (item.submenu) {
                 const isOpen = openSubmenus.includes(item.label)
